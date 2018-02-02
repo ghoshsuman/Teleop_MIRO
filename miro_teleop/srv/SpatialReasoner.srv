@@ -1,0 +1,4 @@
+geometry_msgs/Pose2D center
+float64[2] dimensions
+---
+std_msgs/Float64MultiArray matrices
