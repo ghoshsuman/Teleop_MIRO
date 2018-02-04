@@ -47,7 +47,3 @@ target_link_libraries(rrtstar
    ${catkin_LIBRARIES}
  )
 
-add_executable(rrtstar_client src/rrtstar_client.cpp)
-target_link_libraries(rrtstar_client ${catkin_LIBRARIES})
-add_dependencies(rrtstar_client rrtstar_msgs_generate_messages_cpp geometry_msgs_generate_messages_cpp)
-

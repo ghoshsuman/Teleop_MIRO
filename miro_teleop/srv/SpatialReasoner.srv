@@ -1,4 +1,5 @@
+geometry_msgs/Pose2D target
 geometry_msgs/Pose2D center
-float64[2] dimensions
+std_msgs/Float64[] dimensions
 ---
-std_msgs/Float64MultiArray matrices
+std_msgs/Float64[] matrices
