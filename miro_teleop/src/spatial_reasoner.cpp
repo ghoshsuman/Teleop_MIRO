@@ -13,14 +13,11 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 {
 	double xr = req.center.x;
 	double yr = req.center.y;
-	double xp = req.target.x;
-	double yp = req.target.y;
 
 	double a = req.dimensions[0].data;
 	double b = req.dimensions[1].data;
 
-	double M[1+RES][1+RES][NZ];
-	double xq, yq, xv, yv;
+	double xp, yp, xq, yq, xv, yv;
 	double ang, beta_min, beta, dist_min, dist;
         double c_ang, s_ang;
 
@@ -32,7 +29,8 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 			yp = V_SIZE*(y/double(RES));
 			if((xp>xr)&&(xp<(xr+a))&&(yp>yr)&&(yp<(yr+b)))
                         {
-                                for(int dir=0; dir<NZ; dir++) M[x][y][dir]=0;
+                                for(int dir=0; dir<NZ; dir++) 
+				res.matrices[x+y*RES+dir*RES*RES].data=0;
                                 break;
                         }
                         for(int dir=0; dir<NZ-1; dir++) // For each direction
@@ -62,8 +60,9 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 						dist_min = dist;
                                         }
                                 }
-                                M[x][y][dir]=fmax(0,1-(2*beta_min/PI));
-                                M[x][y][4]=dist_min;
+                                res.matrices[x+y*RES+dir*RES*RES].data
+					       	    = fmax(0,1-(2*beta_min/PI));
+                                res.matrices[x+y*RES+4*RES*RES].data = dist_min;
                         }
 		}
 	}

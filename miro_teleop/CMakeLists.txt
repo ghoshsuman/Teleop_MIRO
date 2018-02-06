@@ -56,7 +56,7 @@ add_executable(robot_controller src/robot_controller.cpp)
 target_link_libraries(robot_controller ${catkin_LIBRARIES})
 add_dependencies(robot_controller miro_teleop_gencpp)
 
-catkin_package()
+catkin_package(CATKIN_DEPENDS message_runtime)
 
 include_directories(
 # include

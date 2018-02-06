@@ -26,6 +26,9 @@ int main(int argc, char **argv)
 
   ros::NodeHandle n;
 
+  ros::Publisher path_pub = n.advertise<geometry_msgs::Vector3>("path",1000);
+  ros::Publisher flag_pub = n.advertise<std_msgs::Bool>("enable",1);
+
   ros::Subscriber sub_cmd = n.subscribe("command", 1, interpreterCallback);
 
   ros::ServiceClient cli_gest = 
@@ -109,14 +112,15 @@ int main(int argc, char **argv)
   if(cli_rrts.call(srv_rrts))
   {
     ROS_INFO("Path found\n");
-    geometry_msgs::Vector3 path[srv_rrts.response.path.size()]; 
+    geometry_msgs::Vector3 point; 
     for(int i=0; i<srv_rrts.response.path.size(); i++)
     {
-      path[i].x = srv_rrts.response.path[i].x;
-      path[i].y = srv_rrts.response.path[i].y;
-      path[i].z = srv_rrts.response.path[i].z;
-      ROS_INFO("[%f] [%f] [%f]\n", path[i].x, path[i].y, path[i].z);
-    }
+      point.x = srv_rrts.response.path[i].x;
+      point.y = srv_rrts.response.path[i].y;
+      point.z = srv_rrts.response.path[i].z;
+      ROS_INFO("[%f] [%f] [%f]\n", point.x, point.y, point.z);
+      path_pub.publish(point);
+     }
   }
 
   ros::spin();

@@ -1,19 +1,29 @@
 #include "ros/ros.h"
 #include "miro_teleop/PertinenceMapping.h"
+#include <cmath>
 
-#define SIZE 100
+#define RES 100
+#define H_SIZE 400
+#define V_SIZE 400
 
 bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
          	      miro_teleop::PertinenceMapping::Response &res)
 {
-	for(int i=0;i<SIZE;i++)
-		for(int j=0;j<SIZE;j++)
-			res.landscape[i+SIZE*j].data = 
-				req.matrices[i+SIZE*j].data + 
-				req.matrices[i+SIZE*j+1*SIZE*SIZE].data +
-				req.matrices[i+SIZE*j+2*SIZE*SIZE].data +
-				req.matrices[i+SIZE*j+3*SIZE*SIZE].data +
-				req.matrices[i+SIZE*j+4*SIZE*SIZE].data;
+
+	double P[4];
+	int Px = floor((req.target.x+(H_SIZE/2.00))/H_SIZE);
+	int Py = floor((req.target.y+(V_SIZE/2.00))/V_SIZE);
+
+	for(int dir=0;dir<4;dir++) P[dir] 
+			= req.matrices[Px+RES*Py+RES*RES*dir].data;	
+	for(int i=0;i<=RES;i++)
+		for(int j=0;j<=RES;j++)
+			res.landscape[i+RES*j].data = 
+				(P[0]*req.matrices[i+RES*j].data + 
+				 P[1]*req.matrices[i+RES*j+1*RES*RES].data +
+				 P[2]*req.matrices[i+RES*j+2*RES*RES].data +
+				 P[3]*req.matrices[i+RES*j+3*RES*RES].data)*
+				 req.matrices[i+RES*j+4*RES*RES].data;
 	
   	return true;
 }
