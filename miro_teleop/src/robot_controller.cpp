@@ -43,8 +43,8 @@ int main(int argc, char **argv)
       p = path.front();
       path.erase(path.begin());
 
-      wl = p.x;
-      wr = p.y;
+      wl = p.x+1;
+      wr = p.y+1;
 
       dr = (wl+wr)/2.0;
       dtheta = (wr-wl)/(MIRO_WHEEL_TRACK_MM/1000.0);
