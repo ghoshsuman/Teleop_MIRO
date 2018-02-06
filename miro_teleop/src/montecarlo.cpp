@@ -3,7 +3,7 @@
 #include <cmath>
 #include "miro_teleop/MonteCarlo.h"
 
-#define GRID 100
+#define RES 100
 
 bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
          	  miro_teleop::MonteCarlo::Response &res)
