@@ -7,8 +7,8 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   message_generation
-  rrtstar
-  rrtstar_msgs
+#  rrtstar
+#  rrtstar_msgs
 )
 
 add_service_files(
