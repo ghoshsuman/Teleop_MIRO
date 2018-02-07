@@ -15,8 +15,11 @@
 #include "rrtstar_msgs/rrtStarSRV.h"
 #include "rrtstar_msgs/Region.h"
 
+std_msgs::UInt8 cmd;
+
 void interpreterCallback(const std_msgs::UInt8::ConstPtr& msg)
 {
+  cmd.data = msg->data;
   ROS_INFO("I heard: [%d]", msg->data);
 }
 
@@ -39,8 +42,12 @@ int main(int argc, char **argv)
 	n.serviceClient<rrtstar_msgs::rrtStarSRV>("rrtStarService");
   rrtstar_msgs::rrtStarSRV srv_rrts;
 
+  ros::Rate loop_rate(10);
+
   geometry_msgs::Pose2D obs_c, robot, target;
   geometry_msgs::Pose gesture;
+  geometry_msgs::Vector3 path[1000]; 
+  std_msgs::Bool enable;
 
   gesture.position.x = 40;
   gesture.position.y = 40;
@@ -50,6 +57,8 @@ int main(int argc, char **argv)
   gesture.orientation.x = 0;
   gesture.orientation.y = 0;
   gesture.orientation.z = -1;
+ 
+  srv_gest.request.gesture = gesture;
   
   obs_c.x = 20.00;
   obs_c.y = 20.00;
@@ -62,18 +71,6 @@ int main(int argc, char **argv)
   std_msgs::Float64 obsdim[2];
   obsdim[0].data = 5.00;
   obsdim[1].data = 5.00;
-
-  srv_gest.request.gesture = gesture;
-  if (cli_gest.call(srv_gest))
-  {
-    target = srv_gest.response.target;
-    ROS_INFO("Target found: (%f,%f,%f)", target.x, target.y, target.theta);
-  }
-  else
-  {
-    ROS_ERROR("Failed to call gesture processing service");
-    return 1;
-  }
 
   rrtstar_msgs::Region workspace;
   workspace.center_x = 0;
@@ -108,22 +105,68 @@ int main(int argc, char **argv)
   srv_rrts.request.Goal = goal;
   srv_rrts.request.Init = init;
   srv_rrts.request.Obstacles.push_back(obs);
-
-  if(cli_rrts.call(srv_rrts))
+ 
+  while(ros::ok())
   {
-    ROS_INFO("Path found\n");
-    geometry_msgs::Vector3 point; 
-    for(int i=0; i<srv_rrts.response.path.size(); i++)
+
+    if(cmd.data==1) // Look
+    { 
+      // Call gesture processing server
+      if (cli_gest.call(srv_gest))
+      {
+        target = srv_gest.response.target;
+        ROS_INFO("Target found: (%f,%f,%f)", target.x, target.y, target.theta);
+      }
+      else
+      {
+        ROS_ERROR("Failed to call gesture processing service");
+        return 1;
+      }
+
+      // Call pertinence mapping server
+
+      // Call monte carlo server
+
+      // Call RRT* server
+      if(cli_rrts.call(srv_rrts))
+      {
+        ROS_INFO("Path found\n");
+        for(int i=0; i<srv_rrts.response.path.size(); i++)
+        {
+          path[i].x = srv_rrts.response.path[i].x;
+          path[i].y = srv_rrts.response.path[i].y;
+          path[i].z = srv_rrts.response.path[i].z;
+          ROS_INFO("[%f] [%f] [%f]\n", path[i].x, path[i].y, path[i].z);
+        }
+      }
+      cmd.data = 0;
+    }
+
+    if(cmd.data==2) // Go
+    { 
+      // Publish path
+      ROS_INFO("Publishing path...");
+      for(int i=0; i<srv_rrts.response.path.size(); i++) 
+        path_pub.publish(path[i]);
+      // Then enable robot control
+      enable.data = true;
+      flag_pub.publish(enable);
+      cmd.data = 0;
+    }
+
+    if(cmd.data==3) 
     {
-      point.x = srv_rrts.response.path[i].x;
-      point.y = srv_rrts.response.path[i].y;
-      point.z = srv_rrts.response.path[i].z;
-      ROS_INFO("[%f] [%f] [%f]\n", point.x, point.y, point.z);
-      path_pub.publish(point);
-     }
+      enable.data = false;
+      flag_pub.publish(enable); // Stop
+      cmd.data = 0;
+    }  
+
+    ros::spinOnce();
+
+    loop_rate.sleep();
+
   }
 
-  ros::spin();
-
   return 0;
+
 }
