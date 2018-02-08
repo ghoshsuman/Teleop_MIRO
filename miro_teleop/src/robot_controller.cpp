@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "robot_controller");
   	ros::NodeHandle n;
 
-	/* Initialize publisher and subscriber */
+	/* Initialize publishers and subscribers */
 	// TODO [OBTAIN ROBOT POSITION FROM MOCAP]
   	ros::Publisher  ctl_pub = 
 		n.advertise<geometry_msgs::Twist>("cmd_vel", 1);

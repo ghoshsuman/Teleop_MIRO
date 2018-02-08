@@ -34,11 +34,11 @@ add_executable(command_logic src/command_logic.cpp)
 target_link_libraries(command_logic ${catkin_LIBRARIES})
 add_dependencies(command_logic miro_teleop_gencpp rrtstar_msgs_gencpp)
 
-add_executable(gesture_processing_server src/gesture_processing_server.cpp)
+add_executable(gesture_processing_server src/gesture_processing.cpp)
 target_link_libraries(gesture_processing_server ${catkin_LIBRARIES})
 add_dependencies(gesture_processing_server miro_teleop_gencpp)
 
-add_executable(monte_carlo_server src/montecarlo.cpp)
+add_executable(monte_carlo_server src/monte_carlo.cpp)
 target_link_libraries(monte_carlo_server ${catkin_LIBRARIES})
 add_dependencies(monte_carlo_server miro_teleop_gencpp)
 
