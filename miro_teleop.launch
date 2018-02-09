@@ -1,0 +1,10 @@
+<launch>
+        <node pkg="miro_teleop" type="gesture_processing_server" name="gesture_processing_server" ns="test" output="screen" launch-prefix="xterm -e"/>
+        <node pkg="miro_teleop" type="pertinence_mapping_server" name="pertinence_mapping_server" ns="test" launch-prefix="xterm -e"/>
+        <node pkg="miro_teleop" type="spatial_reasoning_server" name="spatial_reasoning_server" ns="test" launch-prefix="xterm -e"/>
+        <node pkg="miro_teleop" type="monte_carlo_server" name="monte_carlo_server" ns="test" launch-prefix="xterm -e"/>
+        <node pkg="rrtstar" type="rrtstar" name="rrtstar" ns="test" launch-prefix="xterm -e"/>
+        <node pkg="miro_teleop" type="interpreter" name="interpreter" ns="test" launch-prefix="xterm -e"/>
+        <node pkg="miro_teleop" type="command_logic" name="command_logic" ns="test" launch-prefix="xterm -e"/>
+        <node pkg="miro_teleop" type="robot_controller" name="robot_controller" ns="test" launch-prefix="xterm -e"/>
+</launch>
