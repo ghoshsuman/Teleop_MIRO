@@ -18,17 +18,22 @@
 bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
          	     miro_teleop::SpatialReasoner::Response &res)
 {
+	/* Matrices to be sent back to master (mapped in an 1-D array) */
+	std_msgs::Float64 M[NZ*(RES+1)*(RES+1)];
+
 	/* Obstacle center obtained from motion capture */
 	double xr = req.center.x;
 	double yr = req.center.y;
 	/* Obstacle dimensions obtained as well */
-	double a = req.dimensions[0].data;
-	double b = req.dimensions[1].data;
+	double a = 5;//req.dimensions[0].data;
+	double b = 5;//req.dimensions[1].data;
 
 	/* Other definitions */
 	double xp, yp, xq, yq, xv, yv;
 	double angle, beta_min, beta, dist_min, dist;
         double c_ang, s_ang; // Store cosines and sines to increase performance
+
+	ROS_INFO("Request received from master node");
 
 	/* For every element P=(x,y) of the grid, compute the pertinences */
 	for(int x=0;x<=RES;x++)
@@ -42,7 +47,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 			if((xp>xr)&&(xp<(xr+a))&&(yp>yr)&&(yp<(yr+b)))
                         {
                                 for(int dir=0; dir<NZ; dir++) 
-				res.matrices[x+y*RES+dir*RES*RES].data=0;
+					M[x+y*RES+dir*RES*RES].data=0;
                                 break;
                         }
 			/* Otherwise, compute with respect to each direction */
@@ -78,13 +83,19 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
                                         }
                                 }
 				/* Update matrices with minimum pertinences */
-                                res.matrices[x+y*RES+dir*RES*RES].data
+                                M[x+y*RES+dir*RES*RES].data
 					       	    = fmax(0,1-(2*beta_min/PI));
 				/* Update the minimum distance of P to object */
-                                res.matrices[x+y*RES+4*RES*RES].data = dist_min;
+                                M[x+y*RES+4*RES*RES].data = dist_min;
                         }
 		}
 	}
+
+	/* Assign matrices to response structure */
+	for (int i=0;i<NZ*(RES+1)*(RES+1);i++) res.matrices.push_back(M[i]);
+
+	ROS_INFO("Successfully generated landscapes");	
+
   	return true;
 }
 

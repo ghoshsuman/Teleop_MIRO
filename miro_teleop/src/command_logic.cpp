@@ -17,9 +17,13 @@
 #include "rrtstar_msgs/rrtStarSRV.h"
 #include "rrtstar_msgs/Region.h"
 
+/* Definitions */
+#define RES 100 // Grid resolution
+#define NZ 5 // Number of relations (north, south, west, east, distance-to)
+
 /* Global variables */
 std_msgs::UInt8 cmd; // Command tag received from interpreter
-geometry_msgs::Pose2D obs_c, robot; // Obstacle and robot positions from mocap
+geometry_msgs::Pose2D obs, robot; // Obstacle and robot positions from mocap
 geometry_msgs::Pose gesture; // Gesture information to be processed from mocap
 
 /* Subscriber callback functions */
@@ -29,17 +33,20 @@ void getCmd(const std_msgs::UInt8::ConstPtr& msg)
 	cmd.data = msg->data;
 	ROS_INFO("Command received from interpreter");
 }
-void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& pose)
+void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 {
-	// TODO
+	/* Obtain robot position from mocap */
+	robot = *groundpose;
 }
 void getGesture(const geometry_msgs::Pose::ConstPtr& pose)
 {
-	// TODO 
+	/* Obtain gesture information from mocap */
+	gesture = *pose;
 }
-void getObstaclePose(const std_msgs::UInt8::ConstPtr& pose)
+void getObstaclePose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 {
-	// TODO
+	/* Obtain obstacle position from mocap */
+	obs = *groundpose;
 }
 
 /* Main function */
@@ -48,8 +55,10 @@ int main(int argc, char **argv)
 	/* Definitions */
 	geometry_msgs::Pose2D target, goal; // Target and goal positions
   	geometry_msgs::Vector3 path[1000]; // Trajectory to be published
+	std_msgs::Float64 matrices[NZ*(RES+1)*(RES+1)]; // From spatial reasoner
+	std_msgs::Float64 landscape[(RES+1)*(RES+1)]; // From pertinence mapping
   	std_msgs::Bool enable; // Controller enable flag
-	rrtstar_msgs::Region workspace, goal_box, obs; // For RRT* algorithm
+	rrtstar_msgs::Region workspace, goal_reg, obs_reg; // For RRT* algorithm
 	double pathsize; // Since RRT* trajectory size is variable
 	
 	/* Characterize workspace (predefined) */
@@ -78,15 +87,15 @@ int main(int argc, char **argv)
 	// Subscriber from command interpreter
 	ros::Subscriber sub_cmd = 
 		n.subscribe("command", 3, getCmd);
-	// TODO Subscribers from motion capture (mocap)
+	// Subscribers from motion capture (mocap)
 	ros::Subscriber sub_robot = 
-		n.subscribe("robot", 10, getRobotPose);
+		n.subscribe("Robot/ground_pose", 10, getRobotPose);
 	ros::Subscriber sub_gesture = 
-		n.subscribe("gesture", 10, getGesture);
+		n.subscribe("Gesture/pose", 1, getGesture);
 	ros::Subscriber sub_obs = 
-		n.subscribe("obs", 1, getObstaclePose);
+		n.subscribe("Obstacle/ground_pose", 1, getObstaclePose);
 
-	/* Initialize service clients */
+	/* Initialize service clients and handlers */
   	ros::ServiceClient cli_spat = 
 	n.serviceClient<miro_teleop::SpatialReasoner>("spatial_reasoner");
   	miro_teleop::SpatialReasoner srv_spat;
@@ -110,7 +119,7 @@ int main(int argc, char **argv)
 	/* Update rate (period) */
   	ros::Rate loop_rate(10);
 
-	// TODO These are hard-coded values. Instead use subscribers
+	// [SIMULATION VALUES]
   	gesture.position.x = 40;
   	gesture.position.y = 40;
   	gesture.position.z = 20;
@@ -120,40 +129,60 @@ int main(int argc, char **argv)
   	gesture.orientation.y = 0;
   	gesture.orientation.z = -1;
  
-  	srv_gest.request.gesture = gesture;
-  
-  	obs_c.x = 20.00;
-  	obs_c.y = 20.00;
-  	obs_c.theta = 0;
+  	obs.x = 20.00;
+  	obs.y = 20.00;
+  	obs.theta = 0;
 
   	robot.x = -10.00;
   	robot.y = -10.00;
   	robot.theta = 0;
 
-      	goal_box.center_x = target.x;
- 	goal_box.center_y = target.y;
-  	goal_box.center_z = 0;
-  	goal_box.size_x = 10;
-  	goal_box.size_y = 10;
-  	goal_box.size_z = 0;
+      	goal_reg.center_x = goal.x;
+ 	goal_reg.center_y = goal.y;
+  	goal_reg.center_z = 0;
+  	goal_reg.size_x = 10;
+  	goal_reg.size_y = 10;
+  	goal_reg.size_z = 0;
   
   	geometry_msgs::Vector3 init;
   	init.x = robot.x;
   	init.y = robot.y;
   	init.z = 0;
 
-  	obs.center_x = obs_c.x;
-  	obs.center_y = obs_c.y;
-  	obs.center_z = 0;
-  	obs.size_x = obsdim[0].data;
-  	obs.size_y = obsdim[1].data;
-  	obs.size_z = 0;
+  	obs_reg.center_x = obs.x;
+  	obs_reg.center_y = obs.y;
+  	obs_reg.center_z = 0;
+  	obs_reg.size_x = obsdim[0].data;
+  	obs_reg.size_y = obsdim[1].data;
+  	obs_reg.size_z = 0;
 
   	srv_rrts.request.WS = workspace;
-  	srv_rrts.request.Goal = goal_box;
+  	srv_rrts.request.Goal = goal_reg;
   	srv_rrts.request.Init = init;
-  	srv_rrts.request.Obstacles.push_back(obs);
+  	srv_rrts.request.Obstacles.push_back(obs_reg);
  
+	/* Initialization */
+
+	ROS_INFO("Command logic (master) node active");
+	ROS_INFO("Initialization: calling spatial reasoner");
+
+	// Set the matrices, by calling spatial reasoner
+     	srv_spat.request.center = obs;
+	srv_spat.request.dimensions.push_back(obsdim[0]);
+	srv_spat.request.dimensions.push_back(obsdim[1]);
+
+	if (cli_spat.call(srv_spat))
+      	{
+		for (int i=0;i<NZ*(RES+1)*(RES+1);i++)
+			matrices[i].data = srv_spat.response.matrices[i].data;      	
+		ROS_INFO("Environment landscapes generated succesfully");
+	}
+      	else
+      	{
+        	ROS_ERROR("Failed to call spatial reasoner");
+        	return 1;
+      	}
+
 	/* Main loop */
 	while(ros::ok())
 	{
@@ -161,44 +190,63 @@ int main(int argc, char **argv)
    		if(cmd.data==1)
     		{ 
       			// First, call gesture processing service
+			ROS_INFO("Calling Gesture Processing service");
+		  	srv_gest.request.gesture = gesture;
+
       			if (cli_gest.call(srv_gest))
       			{
         			target = srv_gest.response.target;
-        			ROS_INFO("Target obtained: (%f,%f)", 
+				ROS_INFO("Target obtained: (%f,%f)", 
 						target.x, target.y);
       			}
       			else
       			{
-        			ROS_ERROR("Failed to call gesture processing");
+        			ROS_ERROR("Failed to call Gesture Processing");
         			return 1;
       			}
 
       			// Then, call pertinence mapping service
-      			if (cli_gest.call(srv_pert))
+			ROS_INFO("Calling Pertinence Mapping service");
+      			srv_pert.request.target = target;
+			for (int i=0;i<srv_pert.request.matrices.size();i++)
+			srv_pert.request.matrices.push_back(matrices[i]);
+
+			if (cli_pert.call(srv_pert))
       			{
-      				// TODO
+      				for (int i=0;i<(RES+1)*(RES+1);i++)
+					landscape[i].data = 
+					srv_pert.response.landscape[i].data; 
+				ROS_INFO("Landscapes mapped");
 			}
       			else
       			{
-        			ROS_ERROR("Failed to call pertinence mapping");
+        			ROS_ERROR("Failed to call Pertinence Mapping");
         			return 1;
       			}
 
       			// After, call monte carlo service
-      			if (cli_gest.call(srv_gest))
+			ROS_INFO("Calling Monte Carlo Simulation service");
+			for (int i=0;i<srv_mont.request.landscape.size();i++)
+			srv_mont.request.landscape.push_back(landscape[i]);
+
+      			if (cli_mont.call(srv_mont))
       			{
-				// TODO
-      			}
+				goal = srv_mont.response.goal;
+ 				ROS_INFO("Goal obtained: (%f,%f)",
+						  goal.x, goal.y);
+     
+			}
       			else
       			{
-        			ROS_ERROR("Failed to call monte carlo service");
+        			ROS_ERROR("Failed to call Monte Carlo service");
         			return 1;
       			}
 
       			// Finally, call RRT* server and publish path
+			ROS_INFO("Calling RRT* Path Planner service");
 		      	if(cli_rrts.call(srv_rrts))
       			{
-        			ROS_INFO("Path found\n");
+        			ROS_INFO("Path found: Publishing...");
 				pathsize = srv_rrts.response.path.size();
         			for(int i=0; i<pathsize; i++)
         			{
@@ -206,14 +254,13 @@ int main(int argc, char **argv)
           				path[i].y = srv_rrts.response.path[i].y;
           				path[i].z = srv_rrts.response.path[i].z;
           				path_pub.publish(path[i]);
-					ROS_INFO("[%f] [%f] [%f]\n", 
-					path[i].x, path[i].y, path[i].z);
+					ROS_INFO("Point %d: (%f,%f)",
+							i,path[i].x, path[i].y);
         			}
-	
       			}
        			else
       			{
-        			ROS_ERROR("Failed to call RRT* service");
+        			ROS_ERROR("Failed to call RRT* Path Planner");
         			return 1;
       			}
 		
