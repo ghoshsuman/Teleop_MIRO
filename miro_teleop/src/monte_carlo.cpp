@@ -22,10 +22,17 @@ int quantize(float x, float xmin, float xmax, float quantum){
   return index;
 }
 
+/* Constants */
+#define H_SIZE 400 // Horizontal map size (in cm)
+#define V_SIZE 400 // Vertical map size (in cm)
+#define NZ 5 // Number of zones
+#define RES 100 // Grid resolution
+
 /* Service function */
 bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
          	  miro_teleop::MonteCarlo::Response &res)
 {
+<<<<<<< HEAD
   int iters = 10000, batch = 1, max_x, max_y;
   float quantum = 10.0, sdx = 30, sdy = 30, rx, ry, xmin=-400, xmax=400, ymin=-400, ymax=400;
   float max_obj = 0, obj;
@@ -39,6 +46,20 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
   //For boost with c++98
   boost::mt19937 *rng = new boost::mt19937();
   rng->seed(time(NULL));
+=======
+
+	/* Input matrix containing the pertinences (received from master) */	
+	std_msgs::Float64 landscape[(RES+1)*(RES+1)];
+
+	/* Obtain input from request */
+	for(int i=0;i<req.landscape.size();i++)
+		landscape[i].data = req.landscape[i].data;
+
+	/* TODO [BY NOW ASSUMING THAT GOAL = TARGET] */
+	res.goal.x = 40;
+	res.goal.y = 40;
+	res.goal.theta = 0;
+>>>>>>> d35845ce568f92a71dd64751e7cbe77d42bcc2d5
 
   //Normal Distribution
   //boost::normal_distribution<> distx(req.P.x, sdx);
