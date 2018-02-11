@@ -59,16 +59,9 @@ int main(int argc, char **argv)
 	std_msgs::Float64 landscape[(RES+1)*(RES+1)]; // From pertinence mapping
   	std_msgs::Bool enable; // Controller enable flag
 	rrtstar_msgs::Region workspace, goal_reg, obs_reg; // For RRT* algorithm
+  	geometry_msgs::Vector3 init; // Initial position for the path planner
 	double pathsize; // Since RRT* trajectory size is variable
 	
-	/* Characterize workspace (predefined) */
-	workspace.center_x = 0;
-  	workspace.center_y = 0;
-  	workspace.center_z = 0;
-  	workspace.size_x = 400;
-  	workspace.size_y = 400;
-  	workspace.size_z = 0;
-
 	/* Obstacle dimensions (predefined) */
 	std_msgs::Float64 obsdim[2];
   	obsdim[0].data = 5.00;
@@ -119,7 +112,7 @@ int main(int argc, char **argv)
 	/* Update rate (period) */
   	ros::Rate loop_rate(10);
 
-	// [SIMULATION VALUES]
+	// [SIMULATION VALUES] - Comment them when using motion capture
   	gesture.position.x = 40;
   	gesture.position.y = 40;
   	gesture.position.z = 20;
@@ -137,18 +130,17 @@ int main(int argc, char **argv)
   	robot.y = -10.00;
   	robot.theta = 0;
 
-      	goal_reg.center_x = goal.x;
- 	goal_reg.center_y = goal.y;
-  	goal_reg.center_z = 0;
-  	goal_reg.size_x = 10;
-  	goal_reg.size_y = 10;
-  	goal_reg.size_z = 0;
-  
-  	geometry_msgs::Vector3 init;
-  	init.x = robot.x;
-  	init.y = robot.y;
-  	init.z = 0;
+	/* Characterize workspace region (predefined) */
+	workspace.center_x = 0;
+  	workspace.center_y = 0;
+  	workspace.center_z = 0;
+  	workspace.size_x = 400;
+  	workspace.size_y = 400;
+  	workspace.size_z = 0;
 
+  	srv_rrts.request.WS = workspace; // RRT* request member
+
+ 	/* Assuming static objects, assign the obstacle region only once */
   	obs_reg.center_x = obs.x;
   	obs_reg.center_y = obs.y;
   	obs_reg.center_z = 0;
@@ -156,10 +148,7 @@ int main(int argc, char **argv)
   	obs_reg.size_y = obsdim[1].data;
   	obs_reg.size_z = 0;
 
-  	srv_rrts.request.WS = workspace;
-  	srv_rrts.request.Goal = goal_reg;
-  	srv_rrts.request.Init = init;
-  	srv_rrts.request.Obstacles.push_back(obs_reg);
+  	srv_rrts.request.Obstacles.push_back(obs_reg); // RRT* request member
  
 	/* Initialization */
 
@@ -244,16 +233,34 @@ int main(int argc, char **argv)
 
       			// Finally, call RRT* server and publish path
 			ROS_INFO("Calling RRT* Path Planner service");
+		  	
+			init.x = robot.x; // Initial position is robot current
+  			init.y = robot.y;
+  			init.z = 0;
+
+		      	goal_reg.center_x = goal.x; // Define goal region 
+ 			goal_reg.center_y = goal.y;
+  			goal_reg.center_z = 0;
+  			goal_reg.size_x = 10;
+  			goal_reg.size_y = 10;
+  			goal_reg.size_z = 0;
+
+			// Note: workscape and object regions already defined
+  			srv_rrts.request.Goal = goal_reg;
+		  	srv_rrts.request.Init = init;
+
 		      	if(cli_rrts.call(srv_rrts))
       			{
         			ROS_INFO("Path found: Publishing...");
 				pathsize = srv_rrts.response.path.size();
-        			for(int i=0; i<pathsize; i++)
+        			// Obtain trajectory point-by-point
+				for(int i=0; i<pathsize; i++)
         			{
           				path[i].x = srv_rrts.response.path[i].x;
           				path[i].y = srv_rrts.response.path[i].y;
           				path[i].z = srv_rrts.response.path[i].z;
           				path_pub.publish(path[i]);
+					// Only x and y coordinates matter
 					ROS_INFO("Point %d: (%f,%f)",
 							i,path[i].x, path[i].y);
         			}

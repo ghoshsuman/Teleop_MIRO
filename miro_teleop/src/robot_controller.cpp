@@ -28,10 +28,10 @@ void getStatus(const std_msgs::Bool::ConstPtr& status)
 	if(enable) ROS_INFO("Controller enabled");
 	else ROS_INFO("Controller disabled");
 }
-void getRobotPos(const geometry_msgs::Pose2D::ConstPtr& pos)
+void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 {
 	/* Obtain current robot position from motion capture */
-	robot = *pos;
+	robot = *pose;
 }
 
 /* Main function */
@@ -50,13 +50,15 @@ int main(int argc, char **argv)
   	ros::NodeHandle n;
 
 	/* Initialize publishers and subscribers */
-	// TODO [OBTAIN ROBOT POSITION FROM MOCAP]
   	ros::Publisher  ctl_pub = 
 		n.advertise<geometry_msgs::Twist>("cmd_vel", 1);
 	ros::Subscriber path_sub = 
 		n.subscribe("path", 1000, getPoint);
 	ros::Subscriber en_sub = 
 		n.subscribe("enable", 1, getStatus);	
+	ros::Subscriber mocap_sub = 
+		n.subscribe("Robot/ground_pose", 10, getRobotPose);
+
 
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
