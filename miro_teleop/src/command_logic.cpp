@@ -215,6 +215,7 @@ int main(int argc, char **argv)
 
       			// After, call monte carlo service
 			ROS_INFO("Calling Monte Carlo Simulation service");
+			srv_mont.request.P = target;
 			for (int i=0;i<srv_mont.request.landscape.size();i++)
 			srv_mont.request.landscape.push_back(landscape[i]);
 
