@@ -16,9 +16,10 @@
 #include "miro_teleop/MonteCarlo.h"
 #include "rrtstar_msgs/rrtStarSRV.h"
 #include "rrtstar_msgs/Region.h"
+#include <iostream>
 
 /* Definitions */
-#define RES 100 // Grid resolution
+#define RES 40 // Grid resolution
 #define NZ 5 // Number of relations (north, south, west, east, distance-to)
 
 /* Global variables */
@@ -55,8 +56,8 @@ int main(int argc, char **argv)
 	/* Definitions */
 	geometry_msgs::Pose2D target, goal; // Target and goal positions
   	geometry_msgs::Vector3 path[1000]; // Trajectory to be published
-	std_msgs::Float64 matrices[NZ*(RES+1)*(RES+1)]; // From spatial reasoner
-	std_msgs::Float64 landscape[(RES+1)*(RES+1)]; // From pertinence mapping
+	std_msgs::Float64 matrices[NZ*RES*RES]; // From spatial reasoner
+	std_msgs::Float64 landscape[RES*RES]; // From pertinence mapping
   	std_msgs::Bool enable; // Controller enable flag
 	rrtstar_msgs::Region workspace, goal_reg, obs_reg; // For RRT* algorithm
   	geometry_msgs::Vector3 init; // Initial position for the path planner
@@ -162,7 +163,7 @@ int main(int argc, char **argv)
 
 	if (cli_spat.call(srv_spat))
       	{
-		for (int i=0;i<NZ*(RES+1)*(RES+1);i++)
+		for (int i=0;i<NZ*RES*RES;i++)
 			matrices[i].data = srv_spat.response.matrices[i].data;      	
 		ROS_INFO("Environment landscapes generated succesfully");
 	}
@@ -197,12 +198,12 @@ int main(int argc, char **argv)
       			// Then, call pertinence mapping service
 			ROS_INFO("Calling Pertinence Mapping service");
       			srv_pert.request.target = target;
-			for (int i=0;i<srv_pert.request.matrices.size();i++)
+			for (int i=0;i<RES*RES*NZ;i++)
 			srv_pert.request.matrices.push_back(matrices[i]);
 
 			if (cli_pert.call(srv_pert))
       			{
-      				for (int i=0;i<(RES+1)*(RES+1);i++)
+      				for (int i=0;i<RES*RES;i++)
 					landscape[i].data = 
 					srv_pert.response.landscape[i].data; 
 				ROS_INFO("Landscapes mapped");
@@ -216,7 +217,7 @@ int main(int argc, char **argv)
       			// After, call monte carlo service
 			ROS_INFO("Calling Monte Carlo Simulation service");
 			srv_mont.request.P = target;
-			for (int i=0;i<srv_mont.request.landscape.size();i++)
+			for (int i=0;i<RES*RES;i++)
 			srv_mont.request.landscape.push_back(landscape[i]);
 
       			if (cli_mont.call(srv_mont))
