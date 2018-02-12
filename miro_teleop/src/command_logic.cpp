@@ -67,8 +67,8 @@ int main(int argc, char **argv)
 	
 	/* Obstacle dimensions (predefined) */
 	std_msgs::Float64 obsdim[2];
-  	obsdim[0].data = 60;
- 	obsdim[1].data = 60;
+  	obsdim[0].data = 40;
+ 	obsdim[1].data = 20;
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
@@ -125,12 +125,12 @@ int main(int argc, char **argv)
   	gesture.orientation.y = 0;
   	gesture.orientation.z = -1;
  
-  	obs.x = 20.00;
+  	obs.x = 30.00;
   	obs.y = 20.00;
   	obs.theta = 0;
 
   	robot.x = -100.0;
-  	robot.y = -100.0;
+  	robot.y = -85.0;
   	robot.theta = 0;
 
 	/* Characterize workspace region (predefined) */

@@ -67,7 +67,7 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
   //For c++98
   //std::srand(std::time(NULL));
   //float e2 =std::rand();
-  while(max_obj<0.7){
+  while(max_obj<0.5){
   for (int i = 1; i <= iters; i++) {
     rx=dx();
     ry=dy();
