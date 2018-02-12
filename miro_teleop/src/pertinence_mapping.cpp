@@ -30,8 +30,9 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 		matrices[i].data = req.matrices[i].data;
 
 	/* Extract target coordinates and map to grid */ 
-	int Px = floor((req.target.x+(HSIZE/2))/RES)+HSIZE/double(2*RES);
-	int Py = floor((req.target.y+(VSIZE/2))/RES)+VSIZE/double(2*RES);
+	int Px = floor((req.target.x+HSIZE/2)*RES/HSIZE);
+	int Py = floor((req.target.y+VSIZE/2)*RES/VSIZE);
+	ROS_INFO("Point element coordinates: [%d, %d]",Px,Py);
 
 	/* Calculate point pertinences from input landscapes */
 	double P[4];
@@ -45,8 +46,9 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 				(P[0]*matrices[i+RES*j].data + 
 				 P[1]*matrices[i+RES*j+1*RES*RES].data +
 				 P[2]*matrices[i+RES*j+2*RES*RES].data +
-				 P[3]*matrices[i+RES*j+3*RES*RES].data);
-				 //*matrices[i+RES*j+4*RES*RES].data;
+				 P[3]*matrices[i+RES*j+3*RES*RES].data)/
+				(P[0]+P[1]+P[2]+P[3])
+				*matrices[i+RES*j+4*RES*RES].data;
 	
 	/* Attach obtained matrix to response */	
 	for(int i=0;i<RES*RES;i++) 

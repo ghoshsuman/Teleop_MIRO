@@ -21,6 +21,8 @@
 /* Definitions */
 #define RES 40 // Grid resolution
 #define NZ 5 // Number of relations (north, south, west, east, distance-to)
+#define HSIZE 400
+#define VSIZE 400
 
 /* Global variables */
 std_msgs::UInt8 cmd; // Command tag received from interpreter
@@ -65,8 +67,8 @@ int main(int argc, char **argv)
 	
 	/* Obstacle dimensions (predefined) */
 	std_msgs::Float64 obsdim[2];
-  	obsdim[0].data = 5.00;
- 	obsdim[1].data = 5.00;
+  	obsdim[0].data = 60;
+ 	obsdim[1].data = 60;
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
@@ -114,8 +116,8 @@ int main(int argc, char **argv)
   	ros::Rate loop_rate(10);
 
 	// [SIMULATION VALUES] - Comment them when using motion capture
-  	gesture.position.x = 40;
-  	gesture.position.y = 40;
+  	gesture.position.x = 140;
+  	gesture.position.y = 140;
   	gesture.position.z = 20;
 
   	gesture.orientation.w = 0;
@@ -127,16 +129,16 @@ int main(int argc, char **argv)
   	obs.y = 20.00;
   	obs.theta = 0;
 
-  	robot.x = -10.00;
-  	robot.y = -10.00;
+  	robot.x = -100.0;
+  	robot.y = -100.0;
   	robot.theta = 0;
 
 	/* Characterize workspace region (predefined) */
 	workspace.center_x = 0;
   	workspace.center_y = 0;
   	workspace.center_z = 0;
-  	workspace.size_x = 400;
-  	workspace.size_y = 400;
+  	workspace.size_x = HSIZE;
+  	workspace.size_y = VSIZE;
   	workspace.size_z = 0;
 
   	srv_rrts.request.WS = workspace; // RRT* request member
@@ -236,15 +238,17 @@ int main(int argc, char **argv)
       			// Finally, call RRT* server and publish path
 			ROS_INFO("Calling RRT* Path Planner service");
 		  	
-			init.x = robot.x; // Initial position is robot current
+			// Initial position is robot current one
+			init.x = robot.x;
   			init.y = robot.y;
   			init.z = 0;
 
-		      	goal_reg.center_x = goal.x; // Define goal region 
+			// Define goal region
+		      	goal_reg.center_x = goal.x; 
  			goal_reg.center_y = goal.y;
   			goal_reg.center_z = 0;
-  			goal_reg.size_x = 10;
-  			goal_reg.size_y = 10;
+  			goal_reg.size_x = 5;
+  			goal_reg.size_y = 5;
   			goal_reg.size_z = 0;
 
 			// Note: workscape and object regions already defined

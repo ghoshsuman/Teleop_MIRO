@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 	/* Definitions */
     	geometry_msgs::Vector3 ref; // Reference position (from trajectory)
 	double dr, dtheta; // Linear and angular displacements
-	double ktheta = 0.1; // Angular control gain
+	double ktheta = 1.0; // Angular control gain
 	double vr, vtheta; // Desired linear and angular velocities
 	geometry_msgs::Twist vel; // Velocity message to be published
 	double tol = 5.0;  // Displacement tolerance (in cm)
@@ -59,11 +59,19 @@ int main(int argc, char **argv)
 	ros::Subscriber mocap_sub = 
 		n.subscribe("Robot/ground_pose", 10, getRobotPose);
 
-
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
 
 	ROS_INFO("Robot Controller node active");
+
+	// [SIMULATION ONLY] Initial robot position
+	robot.x = -100;
+	robot.y = -100;
+	robot.theta = 0;
+
+	/* Initialize reference with current robot position */
+	ref.x = robot.x;
+	ref.y = robot.y;
 
 	/* Main loop */
 	while (ros::ok())
@@ -74,20 +82,8 @@ int main(int argc, char **argv)
 			/* Compute displacements */
 			dr = sqrt(pow(ref.x-robot.x,2)+pow(ref.y-robot.y,2));
 			dtheta = atan2(ref.y-robot.y,ref.x-robot.x)-robot.theta;
-			/* Obtain reference speeds (linear and angular) */
-      			vr = 0.4; // Maximum robot speed
-      			vtheta = ktheta*dtheta; // Proportional angular control
 
-			/* Compose message and publish */
-      			vel.linear.x = vr;
-      			vel.angular.z = vtheta;
-      			ctl_pub.publish(vel);
-
-		     	ROS_INFO("Position reference: (%f, %f)",ref.x,ref.y);
-			ROS_INFO("Robot position: (%f, %f)",robot.x,robot.y);
-      			ROS_INFO("Set speed linear %f, angular %f\n",vr,vtheta);
-    		
-			/* Verify that the robot is close enough to target */
+			/* Verify if the robot is close enough to target */
 			if(dr<=tol)
 			{
 				/* Obtain new reference position */
@@ -101,7 +97,32 @@ int main(int argc, char **argv)
 					/* If path is empty, disable control */
 					enable = false;
 					ROS_INFO("Goal position reached");
+					ROS_INFO("Controller disabled");
 				}
+			}
+			else
+			{
+				/* Obtain reference speeds (linear/angular) */
+      				vr = 40*cos(dtheta); // Max. robot speed (cm/s)
+      				vtheta = ktheta*dtheta; // P angular control
+
+				/* Compose message and publish */
+      				vel.linear.x = vr;
+      				vel.angular.z = vtheta;
+      				ctl_pub.publish(vel);
+
+		     		ROS_INFO("Position reference: (%f, %f)",
+							   ref.x,ref.y);
+				ROS_INFO("Robot position: (%f, %f)",
+						   robot.x,robot.y);
+      				ROS_INFO("Set speed linear %f, angular %f\n",
+								  vr,vtheta);
+
+				// [FOR SIMULATION ONLY] Emulate robot movement
+				double DT = 0.1;
+				robot.x = robot.x + DT*vr*cos(robot.theta);
+				robot.y = robot.y + DT*vr*sin(robot.theta);
+				robot.theta = robot.theta + DT*vtheta;
 			}
 		}
 		else

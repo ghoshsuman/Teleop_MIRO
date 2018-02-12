@@ -26,8 +26,8 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	double xr = req.center.x;
 	double yr = req.center.y;
 	/* Obstacle dimensions obtained as well */
-	double a = 20;//req.dimensions[0].data;
-	double b = 20;//req.dimensions[1].data;
+	double a = req.dimensions[0].data;
+	double b = req.dimensions[1].data;
 
 	/* Other definitions */
 	double xp, yp, xq, yq, xv, yv;
@@ -88,7 +88,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 					= fmax(0,1.0-(2.0*beta_min/PI));
 				/* Update the minimum distance of P to object */
                                	M[x+y*RES+4*RES*RES].data 
-					= fmax(0,exp(-dist_min/100.0));
+				= fmin(1,fmax(0,dist_min*exp(-dist_min/90)/30));
                        	}
 		}
 	   }
