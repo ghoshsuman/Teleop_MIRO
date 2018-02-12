@@ -215,6 +215,7 @@ int main(int argc, char **argv)
         			ROS_ERROR("Failed to call Pertinence Mapping");
         			return 1;
       			}
+			srv_pert.request.matrices.clear();
 
       			// After, call monte carlo service
 			ROS_INFO("Calling Monte Carlo Simulation service");
@@ -234,6 +235,7 @@ int main(int argc, char **argv)
         			ROS_ERROR("Failed to call Monte Carlo service");
         			return 1;
       			}
+			srv_mont.request.landscape.clear();
 
       			// Finally, call RRT* server and publish path
 			ROS_INFO("Calling RRT* Path Planner service");

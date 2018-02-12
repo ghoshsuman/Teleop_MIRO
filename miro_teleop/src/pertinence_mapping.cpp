@@ -25,6 +25,10 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 
 	ROS_INFO("Request received from master node");
 
+	// DEBUG
+	ROS_INFO("Target: (%f %f)",req.target.x,req.target.y);
+	ROS_INFO("Matrices size: %d",req.matrices.size());
+
 	/* Obtain input from request */
 	for(int i=0;i<req.matrices.size();i++)
 		matrices[i].data = req.matrices[i].data;
