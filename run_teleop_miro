@@ -10,7 +10,7 @@ gnome-terminal -x rosrun rrtstar rrtstar
 
 # Finally, initialize nodes in the apropriate order
 # (Missing: motion capture and speech recognition nodes)
-gnome-terminal -x rosrun mocap_optitrack mocap_node
+gnome-terminal -x roslaunch mocap_optitrack mocap.launch
 gnome-terminal -x rosrun miro_teleop interpreter
 gnome-terminal -x rosrun miro_teleop command_logic
 gnome-terminal -x rosrun miro_teleop robot_controller

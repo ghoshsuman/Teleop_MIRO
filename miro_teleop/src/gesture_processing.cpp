@@ -4,6 +4,8 @@
 
 /* Libraries */
 #include "ros/ros.h"
+#include "tf/tf.h"
+#include "tf/transform_datatypes.h"
 #include "miro_teleop/GestureProcessing.h"
 #include <cmath>
 
@@ -11,21 +13,43 @@
 bool findTarget(miro_teleop::GestureProcessing::Request  &req,
          	miro_teleop::GestureProcessing::Response &res)
 {
+	/* Obtain body position */
+	geometry_msgs::Point position = req.gesture.position;
+
+	/* Initial orientation reference (assuming alignment with x axis) */
+	tf::Vector3 reference(1,0,0);
+
+	/* Convert from quaternion to rotated vector representation */
+	tf::Quaternion rotation;
+	quaternionMsgToTF(req.gesture.orientation, rotation);
+	tf::Vector3 direction = tf::quatRotate(rotation, reference);
+
+	ROS_INFO("Quaternion received: (%3.2f, %3.2f, %3.2f, %3.2f)",
+		req.gesture.orientation.x,
+		req.gesture.orientation.y,
+		req.gesture.orientation.z,
+		req.gesture.orientation.w);
+
+	ROS_INFO("Position: (%3.2f, %3.2f, %3.2f)", 
+				position.x, position.y, position.z);
+	ROS_INFO("Direction: (%3.2f, %3.2f, %3.2f)",
+				direction.x(), direction.y(), direction.z());
+
 	/* Check whether user is pointing upwards */
-	if(req.gesture.orientation.z > 0)
+	if(direction.z() > 0)
 	{
+		ROS_INFO("Invalid gesture");
 		// TODO Invalid gesture, do something... ****
 	}
 	else
 	{
 		/* If not, find target position in the x-y plane */
-		double a = -req.gesture.position.z/req.gesture.orientation.z;
-		res.target.x = req.gesture.position.x + 
-						 a*req.gesture.orientation.x;
-		res.target.y = req.gesture.position.y + 
-						 a*req.gesture.orientation.y;
-		res.target.theta = atan2(res.target.y-req.gesture.position.y, 
-					res.target.x-req.gesture.position.x);
+
+		double a = -position.z/(direction.z());
+		res.target.x = position.x + a*(direction.x());
+		res.target.y = position.y + a*(direction.y());
+		res.target.theta = atan2(res.target.y-position.y, 
+						res.target.x-position.x);
 	
 		// TODO Include boundaries conditions... ****
 	}

@@ -8,6 +8,7 @@
 #include "std_msgs/Float64.h"
 #include "std_msgs/UInt8.h"
 #include "geometry_msgs/Pose.h"
+#include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/Pose2D.h"
 #include "geometry_msgs/Vector3.h"
 #include "miro_teleop/GestureProcessing.h"
@@ -18,8 +19,8 @@
 #include "rrtstar_msgs/Region.h"
 #include <iostream>
 
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
+// #include <opencv2/core/core.hpp>
+// #include <opencv2/highgui/highgui.hpp>
 // #include <opencv2/contrib/contrib.hpp>
 
 /* Definitions */
@@ -31,7 +32,7 @@
 /* Global variables */
 std_msgs::UInt8 cmd; // Command tag received from interpreter
 geometry_msgs::Pose2D obs, robot; // Obstacle and robot positions from mocap
-geometry_msgs::Pose gesture; // Gesture information to be processed from mocap
+geometry_msgs::Pose gesture; // Gesture information from mocap
 
 /* Subscriber callback functions */
 void getCmd(const std_msgs::UInt8::ConstPtr& msg)
@@ -43,17 +44,24 @@ void getCmd(const std_msgs::UInt8::ConstPtr& msg)
 void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 {
 	/* Obtain robot position from mocap */
-	robot = *groundpose;
+	robot.x = 100*groundpose->x;
+	robot.y = 100*groundpose->y;
+	robot.theta = groundpose->theta;
 }
-void getGesture(const geometry_msgs::Pose::ConstPtr& pose)
+void getGesture(const geometry_msgs::PoseStamped::ConstPtr& pose)
 {
 	/* Obtain gesture information from mocap */
-	gesture = *pose;
+	gesture.orientation = pose->pose.orientation;
+	gesture.position.x = 100*pose->pose.position.x;
+	gesture.position.y = 100*pose->pose.position.y;
+	gesture.position.z = 100*pose->pose.position.z;
 }
 void getObstaclePose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 {
 	/* Obtain obstacle position from mocap */
-	obs = *groundpose;
+	obs.x = 100*groundpose->x;
+	obs.y = 100*groundpose->y;
+	obs.theta = groundpose->theta;
 }
 
 /* Main function */
@@ -120,7 +128,7 @@ int main(int argc, char **argv)
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
 
-	// [SIMULATION VALUES] - Comment them when using motion capture
+	/* [SIMULATION VALUES] - Comment them when using motion capture
   	gesture.position.x = 140;
   	gesture.position.y = 140;
   	gesture.position.z = 20;
@@ -136,7 +144,7 @@ int main(int argc, char **argv)
 
   	robot.x = -100.0;
   	robot.y = -85.0;
-  	robot.theta = 0;
+  	robot.theta = 0; */
 
 	/* Characterize workspace region (predefined) */
 	workspace.center_x = 0;
@@ -170,7 +178,9 @@ int main(int argc, char **argv)
 
 	if (cli_spat.call(srv_spat))
 	{
-		float spat_matrix0[RES][RES], spat_matrix1[RES][RES], spat_matrix2[RES][RES], spat_matrix3[RES][RES], spat_matrix4[RES][RES];
+		float spat_matrix0[RES][RES], spat_matrix1[RES][RES], 
+		spat_matrix2[RES][RES], spat_matrix3[RES][RES], 
+		spat_matrix4[RES][RES];
 		for (int i=0;i<NZ*RES*RES;i++){
 			matrices[i].data = srv_spat.response.matrices[i].data;
 			int depth=i/(RES*RES);
@@ -197,6 +207,7 @@ int main(int argc, char **argv)
 		// 	}
 		// 	std::cout<<"\n";
 		// }
+/*
 		cv::Mat img;
 
 		cv::Mat spatimg0(RES, RES, CV_32F, spat_matrix0);
@@ -229,7 +240,7 @@ int main(int argc, char **argv)
 		cv::namedWindow( "Display window4", cv::WINDOW_NORMAL); // Create a window for display.
 		cv::imshow( "Display window4", img );                // Show our image inside it.
 		cv::waitKey(0);
-
+*/
 		ROS_INFO("Environment landscapes generated succesfully");
 	}
 	else
@@ -246,6 +257,7 @@ int main(int argc, char **argv)
 		{
 			// First, call gesture processing service
 			ROS_INFO("Calling Gesture Processing service");
+			ROS_INFO("Gesture x: %f", gesture.position.x);
 			srv_gest.request.gesture = gesture;
 
 			if (cli_gest.call(srv_gest))

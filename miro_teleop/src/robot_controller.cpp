@@ -5,6 +5,7 @@
 /* Libraries */
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
+#include "miro_msgs/platform_control.h"
 #include "geometry_msgs/Pose2D.h"
 #include "geometry_msgs/Twist.h"
 #include <vector>
@@ -31,7 +32,9 @@ void getStatus(const std_msgs::Bool::ConstPtr& status)
 void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 {
 	/* Obtain current robot position from motion capture */
-	robot = *pose;
+	robot.x = 100*pose->x;
+	robot.y = 100*pose->y;
+	robot.theta = pose->theta;
 }
 
 /* Main function */
@@ -51,7 +54,8 @@ int main(int argc, char **argv)
 
 	/* Initialize publishers and subscribers */
   	ros::Publisher  ctl_pub = 
-		n.advertise<geometry_msgs::Twist>("cmd_vel", 1);
+		n.advertise<miro_msgs::platform_control>
+					("/miro/rob01/platform/control", 1);
 	ros::Subscriber path_sub = 
 		n.subscribe("path", 1000, getPoint);
 	ros::Subscriber en_sub = 
@@ -64,10 +68,10 @@ int main(int argc, char **argv)
 
 	ROS_INFO("Robot Controller node active");
 
-	// [SIMULATION ONLY] Initial robot position
+	/* [SIMULATION ONLY] Initial robot position
 	robot.x = -100;
 	robot.y = -100;
-	robot.theta = 0;
+	robot.theta = 0; */
 
 	/* Initialize reference with current robot position */
 	ref.x = robot.x;
@@ -103,7 +107,7 @@ int main(int argc, char **argv)
 			else
 			{
 				/* Obtain reference speeds (linear/angular) */
-      				vr = 40*cos(dtheta); // Max. robot speed (cm/s)
+      				vr = 0.4*cos(dtheta); // Max. robot speed (m/s)
       				vtheta = ktheta*dtheta; // P angular control
 
 				/* Compose message and publish */
@@ -118,11 +122,11 @@ int main(int argc, char **argv)
       				ROS_INFO("Set speed linear %f, angular %f\n",
 								  vr,vtheta);
 
-				// [FOR SIMULATION ONLY] Emulate robot movement
+				/* [FOR SIMULATION ONLY] Emulate robot movement
 				double DT = 0.1;
 				robot.x = robot.x + DT*vr*cos(robot.theta);
 				robot.y = robot.y + DT*vr*sin(robot.theta);
-				robot.theta = robot.theta + DT*vtheta;
+				robot.theta = robot.theta + DT*vtheta; */
 			}
 		}
 		else
