@@ -5,7 +5,7 @@
 /* Libraries */
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
-#include "miro_msgs/platform_control.h"
+#include "miro_teleop/platform_control.h"
 #include "geometry_msgs/Pose2D.h"
 #include "geometry_msgs/Twist.h"
 #include <vector>
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
 	/* Initialize publishers and subscribers */
   	ros::Publisher  ctl_pub = 
-		n.advertise<miro_msgs::platform_control>
+		n.advertise<miro_teleop::platform_control>
 					("/miro/rob01/platform/control", 1);
 	ros::Subscriber path_sub = 
 		n.subscribe("path", 1000, getPoint);
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 				/* Compose message and publish */
       				vel.linear.x = vr;
       				vel.angular.z = vtheta;
-      				ctl_pub.publish(vel);
+      				//ctl_pub.publish(vel);
 
 		     		ROS_INFO("Position reference: (%f, %f)",
 							   ref.x,ref.y);
@@ -134,7 +134,7 @@ int main(int argc, char **argv)
 			/* Otherwise send a null velocity to robot */
 			vel.linear.x = 0;
 			vel.angular.z = 0;
-			ctl_pub.publish(vel);
+			//ctl_pub.publish(vel);
 		}
 
 		/* Spin and wait for next period */
