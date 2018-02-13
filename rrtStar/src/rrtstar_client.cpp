@@ -12,13 +12,14 @@ int main(int argc, char **argv)
   ros::ServiceClient client = 
 	n.serviceClient<rrtstar_msgs::rrtStarSRV>("rrtStarService");
   rrtstar_msgs::rrtStarSRV srv;
+  rrtstar_msgs::Region obs;
   
   srv.request.WS.center_x = 0;
   srv.request.WS.center_y = 0;
   srv.request.WS.center_z = 0;
 
-  srv.request.WS.size_x = 100;
-  srv.request.WS.size_y = 100;
+  srv.request.WS.size_x = 400;
+  srv.request.WS.size_y = 400;
   srv.request.WS.size_z = 0;
 
   srv.request.Goal.center_x = 50;
@@ -29,27 +30,19 @@ int main(int argc, char **argv)
   srv.request.Goal.size_y = 10;
   srv.request.Goal.size_z = 0;
 
-  srv.request.Init.x = 0;
-  srv.request.Init.y = 0;
+  srv.request.Init.x = -50;
+  srv.request.Init.y = -50;
   srv.request.Init.z = 0;
 
-  srv.request.Obstacles[0].center_x = 25;
-  srv.request.Obstacles[0].center_y = 25;
-  srv.request.Obstacles[0].center_z = 0;
+  obs.center_x = 20;
+  obs.center_y = 30;
+  obs.center_z = 0;
 
-  srv.request.Obstacles[0].size_x = 5;
-  srv.request.Obstacles[0].size_y = 5;
-  srv.request.Obstacles[0].size_z = 0;
+  obs.size_x = 5;
+  obs.size_y = 5;
+  obs.size_z = 0;
 
-  srv.request.Obstacles[1].center_x = 40;
-  srv.request.Obstacles[1].center_y = 40;
-  srv.request.Obstacles[1].center_z = 0;
-
-  srv.request.Obstacles[1].size_x = 3;
-  srv.request.Obstacles[1].size_y = 3;
-  srv.request.Obstacles[1].size_z = 0;
-
-
+  srv.request.Obstacles.push_back(obs);
 
   if (client.call(srv))
   {

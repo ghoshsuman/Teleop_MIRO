@@ -75,30 +75,30 @@ bool generatePath(rrtstar_msgs::rrtStarSRV::Request &req, rrtstar_msgs::rrtStarS
     geometry_msgs::Vector3 pathState;
 
       // Three dimensional configuration space
-    system.setNumDimensions (3);
+    system.setNumDimensions (2);
 
       // Define the operating region
     system.regionOperating.setNumDimensions(3);
     system.regionOperating.center[0] = req.WS.center_x;
     system.regionOperating.center[1] = req.WS.center_y;
-    system.regionOperating.center[2] = req.WS.center_z;
+    //system.regionOperating.center[2] = req.WS.center_z;
     system.regionOperating.size[0] = req.WS.size_x;
     system.regionOperating.size[1] = req.WS.size_y;
-    system.regionOperating.size[2] = req.WS.size_z;
+    //system.regionOperating.size[2] = req.WS.size_z;
 
       // Define the goal region
     system.regionGoal.setNumDimensions(3);
     system.regionGoal.center[0] =req.Goal.center_x;
     system.regionGoal.center[1] =req.Goal.center_y;
-    system.regionGoal.center[2] =req.Goal.center_z;
+    //system.regionGoal.center[2] =req.Goal.center_z;
     system.regionGoal.size[0] = req.Goal.size_x;
     system.regionGoal.size[1] = req.Goal.size_y;;
-    system.regionGoal.size[2] = req.Goal.size_z;
+    //system.regionGoal.size[2] = req.Goal.size_z;
 
-    float goalCenter[3];
+    float goalCenter[2];
     goalCenter[0]=system.regionGoal.center[0];
     goalCenter[1]=system.regionGoal.center[1];
-    goalCenter[2]=system.regionGoal.center[2];
+    //goalCenter[2]=system.regionGoal.center[2];
 
 
   	// Setup the root vertex
@@ -111,7 +111,7 @@ bool generatePath(rrtstar_msgs::rrtStarSRV::Request &req, rrtstar_msgs::rrtStarS
     State &rootState = root.getState();
     rootState[0] = req.Init.x;
     rootState[1] = req.Init.y;
-    rootState[2] = req.Init.z;
+   // rootState[2] = req.Init.z;
 
     // Define the obstacle region
     if (system.obstacles.size()>0)
@@ -124,10 +124,10 @@ bool generatePath(rrtstar_msgs::rrtStarSRV::Request &req, rrtstar_msgs::rrtStarS
 	    obstacle->setNumDimensions(3);
 	    obstacle->center[0] =obs.center_x;
 	    obstacle->center[1] =obs.center_y;
-	    obstacle->center[2] =obs.center_z;
+	//    obstacle->center[2] =obs.center_z;
 	    obstacle->size[0] = obs.size_x;
 	    obstacle->size[1] = obs.size_y;
-	    obstacle->size[2] = obs.size_z;
+	  //  obstacle->size[2] = obs.size_z;
 	    system.obstacles.push_front (obstacle);  // Add the obstacle to the list
 	}
 
