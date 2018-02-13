@@ -202,7 +202,7 @@ int main(int argc, char **argv)
 		cv::Mat spatimg0(RES, RES, CV_32F, spat_matrix0);
 		spatimg0.convertTo(img, CV_8UC1);
 		// applyColorMap( spatimg0, img, COLORMAP_HOT );
-		cv::namedWindow( "Display window0", cv::WINDOW_AUTOSIZE); // Create a window for display.
+		cv::namedWindow( "Display window0", cv::WINDOW_NORMAL); // Create a window for display.
 		cv::imshow( "Display window0", img);                // Show our image inside it.
 	  cv::waitKey(0);
 
@@ -226,7 +226,7 @@ int main(int argc, char **argv)
 
 		cv::Mat spatimg4(RES, RES, CV_32F, spat_matrix4);
 		spatimg4.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window4", cv::WINDOW_AUTOSIZE); // Create a window for display.
+		cv::namedWindow( "Display window4", cv::WINDOW_NORMAL); // Create a window for display.
 		cv::imshow( "Display window4", img );                // Show our image inside it.
 		cv::waitKey(0);
 
