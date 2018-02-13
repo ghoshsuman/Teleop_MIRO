@@ -71,14 +71,10 @@ int main(int argc, char **argv)
 
 	/* Obstacle dimensions (predefined) */
 	std_msgs::Float64 obsdim[2];
-<<<<<<< HEAD
 	obsdim[0].data = 60;
 	obsdim[1].data = 60;
-=======
   	obsdim[0].data = 40;
  	obsdim[1].data = 20;
->>>>>>> 34f91db71aae1fff84cbdde7713a40cc683efea7
-
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
 	ros::NodeHandle n;
