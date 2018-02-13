@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 	double dr, dtheta; // Linear and angular displacements
 	double ktheta = 1.0; // Angular control gain
 	double vr, vtheta; // Desired linear and angular velocities
-	geometry_msgs::Twist vel; // Velocity message to be published
+	miro_teleop::platform_control cmd_vel; // Message to be published
 	double tol = 5.0;  // Displacement tolerance (in cm)
 
 	/* Initialize and assign node handler */
@@ -68,10 +68,10 @@ int main(int argc, char **argv)
 
 	ROS_INFO("Robot Controller node active");
 
-	/* [SIMULATION ONLY] Initial robot position
+	// [SIMULATION ONLY] Initial robot position
 	robot.x = -100;
 	robot.y = -100;
-	robot.theta = 0; */
+	robot.theta = 0;
 
 	/* Initialize reference with current robot position */
 	ref.x = robot.x;
@@ -111,9 +111,9 @@ int main(int argc, char **argv)
       				vtheta = ktheta*dtheta; // P angular control
 
 				/* Compose message and publish */
-      				vel.linear.x = vr;
-      				vel.angular.z = vtheta;
-      				//ctl_pub.publish(vel);
+      				cmd_vel.body_vel.linear.x = vr;
+      				cmd_vel.body_vel.angular.z = vtheta;
+      				ctl_pub.publish(cmd_vel);
 
 		     		ROS_INFO("Position reference: (%f, %f)",
 							   ref.x,ref.y);
@@ -122,19 +122,19 @@ int main(int argc, char **argv)
       				ROS_INFO("Set speed linear %f, angular %f\n",
 								  vr,vtheta);
 
-				/* [FOR SIMULATION ONLY] Emulate robot movement
+				// [FOR SIMULATION ONLY] Emulate robot movement
 				double DT = 0.1;
-				robot.x = robot.x + DT*vr*cos(robot.theta);
-				robot.y = robot.y + DT*vr*sin(robot.theta);
-				robot.theta = robot.theta + DT*vtheta; */
+				robot.x = robot.x + 100*DT*vr*cos(robot.theta);
+				robot.y = robot.y + 100*DT*vr*sin(robot.theta);
+				robot.theta = robot.theta + DT*vtheta; 
 			}
 		}
 		else
 		{
 			/* Otherwise send a null velocity to robot */
-			vel.linear.x = 0;
-			vel.angular.z = 0;
-			//ctl_pub.publish(vel);
+			cmd_vel.body_vel.linear.x = 0;
+			cmd_vel.body_vel.angular.z = 0;
+			ctl_pub.publish(cmd_vel);
 		}
 
 		/* Spin and wait for next period */

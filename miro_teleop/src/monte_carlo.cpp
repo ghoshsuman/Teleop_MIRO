@@ -78,7 +78,7 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
           int ncols = ceil((xmax-xmin)/quantum);
           int nrows = ceil((ymax-ymin)/quantum);
           int index_x = quantize(rx, xmin, xmax, quantum);
-          int index_y = (nrows-1-quantize(ry, ymin, ymax, quantum)); //Inverting to maintain mapping consistency with matrix formed by pertinence mapper
+          int index_y = (ncols-1-quantize(ry, ymin, ymax, quantum)); //Inverting to maintain mapping consistency with matrix formed by pertinence mapper
 
           obj = landscape[index_y*ncols + index_x].data;
           std::cout<<"val = "<<obj<<std::endl;

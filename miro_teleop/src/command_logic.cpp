@@ -81,8 +81,7 @@ int main(int argc, char **argv)
 	std_msgs::Float64 obsdim[2];
 	obsdim[0].data = 60;
 	obsdim[1].data = 60;
-  	obsdim[0].data = 40;
- 	obsdim[1].data = 20;
+	
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
 	ros::NodeHandle n;
@@ -128,23 +127,23 @@ int main(int argc, char **argv)
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
 
-	/* [SIMULATION VALUES] - Comment them when using motion capture
+	// [SIMULATION VALUES] - Comment them when using motion capture
   	gesture.position.x = 140;
   	gesture.position.y = 140;
   	gesture.position.z = 20;
 
-  	gesture.orientation.w = 0;
+  	gesture.orientation.w = 0.707;
   	gesture.orientation.x = 0;
-  	gesture.orientation.y = 0;
-  	gesture.orientation.z = -1;
+  	gesture.orientation.y = 0.707;
+  	gesture.orientation.z = 0;
 
   	obs.x = 30.00;
   	obs.y = 20.00;
   	obs.theta = 0;
 
   	robot.x = -100.0;
-  	robot.y = -85.0;
-  	robot.theta = 0; */
+  	robot.y = -100.0;
+  	robot.theta = 0; 
 
 	/* Characterize workspace region (predefined) */
 	workspace.center_x = 0;

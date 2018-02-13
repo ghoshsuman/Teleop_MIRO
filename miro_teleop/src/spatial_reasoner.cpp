@@ -88,7 +88,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 					= fmax(0,1.0-(2.0*beta_min/PI));
 				/* Update the minimum distance of P to object */
                                	M[x+y*RES+4*RES*RES].data 
-				= fmin(1,fmax(0,dist_min*exp(-dist_min/90)/30));
+				= fmin(1,fmax(0,dist_min*exp(-dist_min/60)/20));
                        	}
 		}
 	   }
