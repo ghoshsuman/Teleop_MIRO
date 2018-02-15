@@ -9,14 +9,8 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   message_generation
+  miro_msgs
   OpenCV
-)
-
-add_message_files(
-  DIRECTORY
-  msg
-  FILES
-  platform_control.msg
 )
 
 add_service_files(
@@ -34,6 +28,7 @@ generate_messages(
   std_msgs
   geometry_msgs
   rrtstar_msgs
+  miro_msgs
 )
 
 add_executable(interpreter src/interpreter.cpp)
@@ -62,7 +57,7 @@ add_dependencies(spatial_reasoning_server miro_teleop_gencpp)
 
 add_executable(robot_controller src/robot_controller.cpp)
 target_link_libraries(robot_controller ${catkin_LIBRARIES})
-add_dependencies(robot_controller miro_teleop_gencpp)
+add_dependencies(robot_controller miro_teleop_gencpp miro_msgs_gencpp miro_msgs_genpy)
 
 catkin_package(CATKIN_DEPENDS message_runtime)
 

@@ -5,7 +5,7 @@
 /* Libraries */
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
-#include "miro_teleop/platform_control.h"
+#include "miro_msgs/platform_control.h"
 #include "geometry_msgs/Pose2D.h"
 #include "geometry_msgs/Twist.h"
 #include <vector>
@@ -45,7 +45,7 @@ int main(int argc, char **argv)
 	double dr, dtheta; // Linear and angular displacements
 	double ktheta = 1.0; // Angular control gain
 	double vr, vtheta; // Desired linear and angular velocities
-	miro_teleop::platform_control cmd_vel; // Message to be published
+	miro_msgs::platform_control cmd_vel; // Message to be published
 	double tol = 5.0;  // Displacement tolerance (in cm)
 
 	/* Initialize and assign node handler */
@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
 	/* Initialize publishers and subscribers */
   	ros::Publisher  ctl_pub = 
-		n.advertise<miro_teleop::platform_control>
+		n.advertise<miro_msgs::platform_control>
 					("/miro/rob01/platform/control", 1);
 	ros::Subscriber path_sub = 
 		n.subscribe("path", 1000, getPoint);
@@ -132,7 +132,8 @@ int main(int argc, char **argv)
 		else
 		{
 			/* Otherwise send a null velocity to robot */
-			cmd_vel.body_vel.linear.x = 0;
+			// TEST RANDOM MSG TO MIRO
+			cmd_vel.body_vel.linear.x = 0.1;
 			cmd_vel.body_vel.angular.z = 0;
 			ctl_pub.publish(cmd_vel);
 		}
