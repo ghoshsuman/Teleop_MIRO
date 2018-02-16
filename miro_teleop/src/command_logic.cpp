@@ -127,7 +127,7 @@ int main(int argc, char **argv)
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
 
-	// [SIMULATION VALUES] - Comment them when using motion capture
+	/* [SIMULATION VALUES] - Comment them when using motion capture
   	gesture.position.x = 140;
   	gesture.position.y = 140;
   	gesture.position.z = 20;
@@ -144,6 +144,7 @@ int main(int argc, char **argv)
   	robot.x = -100.0;
   	robot.y = -100.0;
   	robot.theta = 0; 
+	*/
 
 	/* Characterize workspace region (predefined) */
 	workspace.center_x = 0;

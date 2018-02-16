@@ -8,8 +8,10 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  message_generation
+  sensor_msgs
+  nav_msgs
   miro_msgs
+  message_generation
   OpenCV
 )
 

@@ -55,7 +55,7 @@ int main(int argc, char **argv)
 	/* Initialize publishers and subscribers */
   	ros::Publisher  ctl_pub = 
 		n.advertise<miro_msgs::platform_control>
-					("/miro/rob01/platform/control", 1);
+					("/miro/rob01/platform/control", 10);
 	ros::Subscriber path_sub = 
 		n.subscribe("path", 1000, getPoint);
 	ros::Subscriber en_sub = 
@@ -68,11 +68,11 @@ int main(int argc, char **argv)
 
 	ROS_INFO("Robot Controller node active");
 
-	// [SIMULATION ONLY] Initial robot position
+	/* [SIMULATION ONLY] Initial robot position
 	robot.x = -100;
 	robot.y = -100;
 	robot.theta = 0;
-
+*/
 	/* Initialize reference with current robot position */
 	ref.x = robot.x;
 	ref.y = robot.y;
@@ -80,6 +80,13 @@ int main(int argc, char **argv)
 	/* Main loop */
 	while (ros::ok())
 	{
+	
+		/* TEST RANDOM MSG TO MIRO
+			cmd_vel.body_vel.linear.x = 250;
+			cmd_vel.body_vel.angular.z = 0.01;
+			ctl_pub.publish(cmd_vel);
+*/
+
 		/* Perform control only with flag enabled */
 		if(enable)   
 		{
@@ -106,8 +113,9 @@ int main(int argc, char **argv)
 			}
 			else
 			{
+		
 				/* Obtain reference speeds (linear/angular) */
-      				vr = 0.4*cos(dtheta); // Max. robot speed (m/s)
+      				vr = 400*cos(dtheta); // Max. robot speed (m/s)
       				vtheta = ktheta*dtheta; // P angular control
 
 				/* Compose message and publish */
@@ -122,19 +130,18 @@ int main(int argc, char **argv)
       				ROS_INFO("Set speed linear %f, angular %f\n",
 								  vr,vtheta);
 
-				// [FOR SIMULATION ONLY] Emulate robot movement
+				/* [FOR SIMULATION ONLY] Emulate robot movement
 				double DT = 0.1;
 				robot.x = robot.x + 100*DT*vr*cos(robot.theta);
 				robot.y = robot.y + 100*DT*vr*sin(robot.theta);
-				robot.theta = robot.theta + DT*vtheta; 
+				robot.theta = robot.theta + DT*vtheta; */
 			}
 		}
 		else
 		{
 			/* Otherwise send a null velocity to robot */
-			// TEST RANDOM MSG TO MIRO
-			cmd_vel.body_vel.linear.x = 0.1;
-			cmd_vel.body_vel.angular.z = 0;
+			cmd_vel.body_vel.linear.x = 0.0;
+			cmd_vel.body_vel.angular.z = 0.0;
 			ctl_pub.publish(cmd_vel);
 		}
 
