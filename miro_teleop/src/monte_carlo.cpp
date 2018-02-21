@@ -18,56 +18,59 @@
 #define NZ 5 // Number of zones
 #define RES 40 // Grid resolution
 #define PERT_THRESH 0.5
+#define LIMIT 10000 // Limit simulation rounds (timeout constraint)
 
 //Method to quantize coordinate of a point to index of discretized matrix, along a particular dimension
-int quantize(float x, float xmin, float xmax, float quantum){
-  int n = ceil((xmax-xmin)/quantum);
-  int posOrigin = ceil(n/2.0)-1;
-  float delta = 0;
-  if (n%2 != 0)
-  delta = quantum/2.0;
-  int index = posOrigin + ceil((x-delta)/quantum);
-  return index;
+int quantize(float x, float xmin, float xmax, float quantum)
+{
+  	int n = ceil((xmax-xmin)/quantum);
+  	int posOrigin = ceil(n/2.0)-1;
+  	float delta = 0;
+  	if (n%2 != 0) delta = quantum/2.0;
+  	int index = posOrigin + ceil((x-delta)/quantum);
+  	return index;
 }
 
 /* Service function */
 bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
   miro_teleop::MonteCarlo::Response &res)
-  {
-    int iters = 10000, batch = 1, max_x, max_y;
-    float quantum = 10.0, sdx = 30, sdy = 30, rx, ry, xmin=-200, xmax=200, ymin=-200, ymax=200;
-    float max_obj = 0, obj;
+{
+   	int iters = 10000, batch = 1, max_x, max_y, count = 0;
+    	float quantum = 10.0, sdx = 30, sdy = 30, rx, ry, xmin=-200, xmax=200, ymin=-200, ymax=200;
+    	float max_obj = 0, obj;
 
-    //Obtain input request data
-    std_msgs::Float64 landscape[RES*RES];
-    for(int i=0;i<req.landscape.size();i++)
-    landscape[i].data = req.landscape[i].data;
+    	// Obtain input request data
+    	std_msgs::Float64 landscape[RES*RES];
+    	for(int i=0;i<req.landscape.size();i++)
+    	landscape[i].data = req.landscape[i].data;
 
-    //For c++11
-    // random_device rd;
-    // mt19937 e2(rd());
-    // normal_distribution<> distx(Px, sdx);
-    // normal_distribution<> disty(Py, sdy);
+    	//For c++11
+    	// random_device rd;
+    	// mt19937 e2(rd());
+    	// normal_distribution<> distx(Px, sdx);
+    	// normal_distribution<> disty(Py, sdy);
 
-    //For boost with c++98
-    boost::mt19937 *rng = new boost::mt19937();
-    rng->seed(time(NULL));
+    	// For boost with c++98
+    	boost::mt19937 *rng = new boost::mt19937();
+    	rng->seed(time(NULL));
 
-    //Normal Distribution
-    //boost::normal_distribution<> distx(req.P.x, sdx);
-    //boost::normal_distribution<> disty(req.P.y, sdy);
-    // boost::variate_generator< boost::mt19937, boost::normal_distribution<> > dx(*rng, distx);
-    // boost::variate_generator< boost::mt19937, boost::normal_distribution<> > dy(*rng, disty);
+    	//Normal Distribution
+    	//boost::normal_distribution<> distx(req.P.x, sdx);
+    	//boost::normal_distribution<> disty(req.P.y, sdy);
+    	// boost::variate_generator< boost::mt19937, boost::normal_distribution<> > dx(*rng, distx);
+    	// boost::variate_generator< boost::mt19937, boost::normal_distribution<> > dy(*rng, disty);
 
-    //Uniform Distribution
-    boost::random::uniform_real_distribution<> distx(xmin, xmax);
-    boost::random::uniform_real_distribution<> disty(ymin, ymax);
-    boost::variate_generator< boost::mt19937, boost::random::uniform_real_distribution<> > dx(*rng, distx);
-    boost::variate_generator< boost::mt19937, boost::random::uniform_real_distribution<> > dy(*rng, disty);
+    	// Uniform Distribution
+    	boost::random::uniform_real_distribution<> distx(xmin, xmax);
+    	boost::random::uniform_real_distribution<> disty(ymin, ymax);
+    	boost::variate_generator< boost::mt19937, 
+		boost::random::uniform_real_distribution<> > dx(*rng, distx);
+    	boost::variate_generator< boost::mt19937, 
+		boost::random::uniform_real_distribution<> > dy(*rng, disty);
 
-    //For c++98
-    //std::srand(std::time(NULL));
-    //float e2 =std::rand();
+    	//For c++98
+    	//std::srand(std::time(NULL));
+    	//float e2 =std::rand();
     while(max_obj<PERT_THRESH){
       for (int i = 1; i <= iters; i++) {
         rx=dx();
@@ -89,12 +92,20 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
           }
         }
       }
+      count++;
+      if(count>=LIMIT)
+      {
+        ROS_INFO("Timeout: maximum number of rounds exceeded");
+        // Return out-of-bound numbers as a timeout flag
+	res.goal.x = 2*H_SIZE;
+	res.goal.y = 2*V_SIZE;
+        return true;
+      }
     }
 
     res.goal.x = max_x;
     res.goal.y = max_y;
-    ROS_INFO("Goal position: (%f,%f,%f)",
-    res.goal.x, res.goal.y, res.goal.theta);
+    ROS_INFO("Goal position: (%f,%f)", res.goal.x, res.goal.y);
     return true;
   }
 

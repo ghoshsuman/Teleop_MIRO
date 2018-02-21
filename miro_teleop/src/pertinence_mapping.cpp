@@ -23,6 +23,8 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 	/* Landscape matrix to be returned (mapped into an 1-D array) */
 	std_msgs::Float64 landscape[RES*RES];
 
+	double max = 0;
+
 	ROS_INFO("Request received from master node");
 
 	// DEBUG
@@ -45,18 +47,27 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 
 	/* Perform mapping of all landscapes into one */
 	for(int i=0;i<RES;i++)
+	{
 		for(int j=0;j<RES;j++)
+		{
 			landscape[i+RES*j].data = 
 				(P[0]*matrices[i+RES*j].data + 
 				 P[1]*matrices[i+RES*j+1*RES*RES].data +
 				 P[2]*matrices[i+RES*j+2*RES*RES].data +
-				 P[3]*matrices[i+RES*j+3*RES*RES].data)/
-				(P[0]+P[1]+P[2]+P[3])
+				 P[3]*matrices[i+RES*j+3*RES*RES].data)
 				*matrices[i+RES*j+4*RES*RES].data;
+			if(landscape[i+RES*j].data>max)
+				max = landscape[i+RES*j].data;
+		}
+	}		
 	
+
 	/* Attach obtained matrix to response */	
-	for(int i=0;i<RES*RES;i++) 
+	for(int i=0;i<RES*RES;i++)
+	{ 
+		landscape[i].data = (landscape[i].data)/max;
 		res.landscape.push_back(landscape[i]);
+	}
 
 	ROS_INFO("Successfully mapped the pertinences");
 

@@ -9,6 +9,10 @@
 #include "miro_teleop/GestureProcessing.h"
 #include <cmath>
 
+/* Definitions */
+#define HSIZE 400
+#define VSIZE 400
+
 /* Service function */
 bool findTarget(miro_teleop::GestureProcessing::Request  &req,
          	miro_teleop::GestureProcessing::Response &res)
@@ -39,7 +43,10 @@ bool findTarget(miro_teleop::GestureProcessing::Request  &req,
 	if(direction.z() > 0)
 	{
 		ROS_INFO("Invalid gesture");
-		// TODO Invalid gesture, do something... ****
+		// Send a position out of the bounds
+		res.target.x = 2*HSIZE;
+		res.target.y = 2*VSIZE;
+		res.target.theta = 0;
 	}
 	else
 	{
@@ -50,11 +57,10 @@ bool findTarget(miro_teleop::GestureProcessing::Request  &req,
 		res.target.y = position.y + a*(direction.y());
 		res.target.theta = atan2(res.target.y-position.y, 
 						res.target.x-position.x);
-	
-		// TODO Include boundaries conditions... ****
+		// Bound conditions are verified by the master
 	}
  	
-	ROS_INFO("Target found: (%f,%f)", res.target.x, res.target.y);
+	ROS_INFO("Target: (%f,%f)", res.target.x, res.target.y);
   	
 	return true;
 }

@@ -72,7 +72,8 @@ int main(int argc, char **argv)
 	robot.x = -100;
 	robot.y = -100;
 	robot.theta = 0;
-*/
+	*/
+
 	/* Initialize reference with current robot position */
 	ref.x = robot.x;
 	ref.y = robot.y;
@@ -81,11 +82,11 @@ int main(int argc, char **argv)
 	while (ros::ok())
 	{
 	
-		/* TEST RANDOM MSG TO MIRO
+		/* [DEBUG] TEST RANDOM MSG TO MIRO
 			cmd_vel.body_vel.linear.x = 250;
 			cmd_vel.body_vel.angular.z = 0.01;
 			ctl_pub.publish(cmd_vel);
-*/
+		*/
 
 		/* Perform control only with flag enabled */
 		if(enable)   

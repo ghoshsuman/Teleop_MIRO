@@ -18,10 +18,11 @@
 #include "rrtstar_msgs/rrtStarSRV.h"
 #include "rrtstar_msgs/Region.h"
 #include <iostream>
+#include <cmath>
 
-// #include <opencv2/core/core.hpp>
-// #include <opencv2/highgui/highgui.hpp>
-// #include <opencv2/contrib/contrib.hpp>
+//#include <opencv2/core/core.hpp>
+//#include <opencv2/highgui/highgui.hpp>
+//#include <opencv2/contrib/contrib.hpp>
 
 /* Definitions */
 #define RES 40 // Grid resolution
@@ -76,6 +77,7 @@ int main(int argc, char **argv)
 	rrtstar_msgs::Region workspace, goal_reg, obs_reg; // For RRT* algorithm
 	geometry_msgs::Vector3 init; // Initial position for the path planner
 	double pathsize; // Since RRT* trajectory size is variable
+	int state = 0; // Control flag for the "look" command
 
 	/* Obstacle dimensions (predefined) */
 	std_msgs::Float64 obsdim[2];
@@ -178,69 +180,69 @@ int main(int argc, char **argv)
 
 	if (cli_spat.call(srv_spat))
 	{
-		float spat_matrix0[RES][RES], spat_matrix1[RES][RES], 
-		spat_matrix2[RES][RES], spat_matrix3[RES][RES], 
-		spat_matrix4[RES][RES];
+		// Matrices to be plotted by opencv
+		float   spmat0[RES][RES], spmat1[RES][RES], 
+			spmat2[RES][RES], spmat3[RES][RES], 
+			spmat4[RES][RES];
+
 		for (int i=0;i<NZ*RES*RES;i++){
 			matrices[i].data = srv_spat.response.matrices[i].data;
 			int depth=i/(RES*RES);
-			int linear_index = i%(RES*RES);
-			if(depth==0){
-				spat_matrix0[linear_index/RES][linear_index%RES]=matrices[i].data*255;
-			}
-			if(depth==1){
-				spat_matrix1[linear_index/RES][linear_index%RES]=matrices[i].data*255;
-			}
-			if(depth==2){
-				spat_matrix2[linear_index/RES][linear_index%RES]=matrices[i].data*255;
-			}
-			if(depth==3){
-				spat_matrix3[linear_index/RES][linear_index%RES]=matrices[i].data*255;
-			}
-			if(depth==4){
-				spat_matrix4[linear_index/RES][linear_index%RES]=matrices[i].data*255;
-			}
+			int l_ind = i%(RES*RES);
+			if(depth==0)
+			spmat0[l_ind/RES][l_ind%RES]=matrices[i].data*255;
+			if(depth==1)
+			spmat1[l_ind/RES][l_ind%RES]=matrices[i].data*255;
+			if(depth==2)
+			spmat2[l_ind/RES][l_ind%RES]=matrices[i].data*255;
+			if(depth==3)
+			spmat3[l_ind/RES][l_ind%RES]=matrices[i].data*255;
+			if(depth==4)
+			spmat4[l_ind/RES][l_ind%RES]=matrices[i].data*255;
 		}
+
 		// for (int i=0;i<RES;i++){
 		// 	for(int j=0;j<RES;j++){
-		// 		std::cout<<spat_matrix0[i][j]<<",";
+		// 		std::cout<<spmat0[i][j]<<",";
 		// 	}
 		// 	std::cout<<"\n";
 		// }
-/*
+
+		/* Display landscapes (requires opencv package) 
 		cv::Mat img;
 
-		cv::Mat spatimg0(RES, RES, CV_32F, spat_matrix0);
+		// For each matrix, create a window and display image inside
+		cv::Mat spatimg0(RES, RES, CV_32F, spmat0);
 		spatimg0.convertTo(img, CV_8UC1);
 		// applyColorMap( spatimg0, img, COLORMAP_HOT );
-		cv::namedWindow( "Display window0", cv::WINDOW_NORMAL); // Create a window for display.
-		cv::imshow( "Display window0", img);                // Show our image inside it.
-	  cv::waitKey(0);
+		cv::namedWindow( "Display window0", cv::WINDOW_NORMAL); 
+		cv::imshow( "Display window0", img);
+		cv::waitKey(0);
 
-		cv::Mat spatimg1(RES, RES, CV_32F, spat_matrix1);
+		cv::Mat spatimg1(RES, RES, CV_32F, spmat1);
 		spatimg1.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window1", cv::WINDOW_NORMAL); // Create a window for display.
-		cv::imshow( "Display window1", img );                // Show our image inside it.
+		cv::namedWindow( "Display window1", cv::WINDOW_NORMAL); 
+		cv::imshow( "Display window1", img );         
 		cv::waitKey(0);
 
-		cv::Mat spatimg2(RES, RES, CV_32F, spat_matrix2);
+		cv::Mat spatimg2(RES, RES, CV_32F, spmat2);
 		spatimg2.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window2", cv::WINDOW_NORMAL); // Create a window for display.
-		cv::imshow( "Display window2", img );                // Show our image inside it.
+		cv::namedWindow( "Display window2", cv::WINDOW_NORMAL); 			cv::imshow( "Display window2", img ); 
 		cv::waitKey(0);
 
-		cv::Mat spatimg3(RES, RES, CV_32F, spat_matrix3);
+		cv::Mat spatimg3(RES, RES, CV_32F, spmat3);
 		spatimg3.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window3", cv::WINDOW_NORMAL); // Create a window for display.
-		cv::imshow( "Display window3", img );                // Show our image inside it.
+		cv::namedWindow( "Display window3", cv::WINDOW_NORMAL);
+		cv::imshow( "Display window3", img );               
 		cv::waitKey(0);
 
-		cv::Mat spatimg4(RES, RES, CV_32F, spat_matrix4);
+		cv::Mat spatimg4(RES, RES, CV_32F, spmat4);
 		spatimg4.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window4", cv::WINDOW_NORMAL); // Create a window for display.
-		cv::imshow( "Display window4", img );                // Show our image inside it.
+		cv::namedWindow( "Display window4", cv::WINDOW_NORMAL); 
+		cv::imshow( "Display window4", img );               
 		cv::waitKey(0);
-*/
+		*/
+
 		ROS_INFO("Environment landscapes generated succesfully");
 	}
 	else
@@ -255,6 +257,8 @@ int main(int argc, char **argv)
 		/* Command: look */
 		if(cmd.data==1)
 		{
+			state = 0;
+
 			// First, call gesture processing service
 			ROS_INFO("Calling Gesture Processing service");
 			ROS_INFO("Gesture x: %f", gesture.position.x);
@@ -263,8 +267,23 @@ int main(int argc, char **argv)
 			if (cli_gest.call(srv_gest))
 			{
 				target = srv_gest.response.target;
-				ROS_INFO("Target obtained: (%f,%f)",
-				target.x, target.y);
+				// Verify if target is valid number
+				if(std::isfinite(target.x) && 
+					std::isfinite(target.y))
+				{
+					ROS_INFO("Target obtained: (%f,%f)",
+					target.x, target.y);
+					state = 1;
+				}
+				else
+				ROS_INFO("Invalid target: please try again");
+				// Verify bound conditions
+				if(target.x < -HSIZE/2 || target.x > HSIZE/2 ||
+				   target.y < -VSIZE/2 || target.y > VSIZE/2)
+				{
+					ROS_INFO("Target out of the bounds");
+					state = 0;
+				}
 			}
 			else
 			{
@@ -273,6 +292,8 @@ int main(int argc, char **argv)
 			}
 
 			// Then, call pertinence mapping service
+			if(state==1)
+			{
 			ROS_INFO("Calling Pertinence Mapping service");
 			srv_pert.request.target = target;
 			for (int i=0;i<RES*RES*NZ;i++)
@@ -283,7 +304,17 @@ int main(int argc, char **argv)
 				for (int i=0;i<RES*RES;i++)
 				landscape[i].data =
 				srv_pert.response.landscape[i].data;
-				ROS_INFO("Landscapes mapped");
+				// Verify whether the output is valid
+				if(!std::isfinite(landscape[0].data))
+				{
+					state = 0;
+					ROS_INFO("Invalid pertinence mapping");
+				}
+				else 
+				{
+					state = 2;
+					ROS_INFO("Landscapes mapped");
+				}
 			}
 			else
 			{
@@ -291,8 +322,11 @@ int main(int argc, char **argv)
 				return 1;
 			}
 			srv_pert.request.matrices.clear();
+			}
 
 			// After, call monte carlo service
+			if(state==2)
+			{
 			ROS_INFO("Calling Monte Carlo Simulation service");
 			srv_mont.request.P = target;
 			for (int i=0;i<RES*RES;i++)
@@ -301,9 +335,19 @@ int main(int argc, char **argv)
 			if (cli_mont.call(srv_mont))
 			{
 				goal = srv_mont.response.goal;
-				ROS_INFO("Goal obtained: (%f,%f)",
-				goal.x, goal.y);
-
+				// Verify if goal returned is valid
+				if(goal.x<-HSIZE/2 || goal.x>HSIZE/2 
+				|| goal.y<-VSIZE/2 || goal.y>VSIZE/2)
+				{
+					ROS_INFO("Invalid goal position");
+					state = 0;
+				}
+				else
+				{
+					ROS_INFO("Goal obtained: (%f,%f)",
+					goal.x, goal.y);
+					state = 3;
+				}
 			}
 			else
 			{
@@ -311,8 +355,11 @@ int main(int argc, char **argv)
 				return 1;
 			}
 			srv_mont.request.landscape.clear();
+			}
 
 			// Finally, call RRT* server and publish path
+			if(state==3)
+			{
 			ROS_INFO("Calling RRT* Path Planner service");
 
 			// Initial position is robot current one
@@ -324,8 +371,8 @@ int main(int argc, char **argv)
 			goal_reg.center_x = goal.x;
 			goal_reg.center_y = goal.y;
 			goal_reg.center_z = 0;
-			goal_reg.size_x = 5;
-			goal_reg.size_y = 5;
+			goal_reg.size_x = 10;
+			goal_reg.size_y = 10;
 			goal_reg.size_z = 0;
 
 			// Note: workscape and object regions already defined
@@ -347,11 +394,13 @@ int main(int argc, char **argv)
 					ROS_INFO("Point %d: (%f,%f)",
 					i,path[i].x, path[i].y);
 				}
+				state = 4;
 			}
 			else
 			{
 				ROS_ERROR("Failed to call RRT* Path Planner");
 				return 1;
+			}
 			}
 
 			// Reset command
