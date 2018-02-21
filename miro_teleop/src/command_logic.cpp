@@ -20,9 +20,9 @@
 #include <iostream>
 #include <cmath>
 
-//#include <opencv2/core/core.hpp>
-//#include <opencv2/highgui/highgui.hpp>
-//#include <opencv2/contrib/contrib.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 
 /* Definitions */
 #define RES 40 // Grid resolution
@@ -81,8 +81,8 @@ int main(int argc, char **argv)
 
 	/* Obstacle dimensions (predefined) */
 	std_msgs::Float64 obsdim[2];
-	obsdim[0].data = 60;
-	obsdim[1].data = 60;
+	obsdim[0].data = 80;
+	obsdim[1].data = 80;
 	
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
@@ -208,12 +208,12 @@ int main(int argc, char **argv)
 		// 	std::cout<<"\n";
 		// }
 
-		/* Display landscapes (requires opencv package) 
+		//Display landscapes (requires opencv package) 
 		cv::Mat img;
 
 		// For each matrix, create a window and display image inside
 		cv::Mat spatimg0(RES, RES, CV_32F, spmat0);
-		spatimg0.convertTo(img, CV_8UC1);
+		spatimg0.convertTo(img, CV_8UC1);		
 		// applyColorMap( spatimg0, img, COLORMAP_HOT );
 		cv::namedWindow( "Display window0", cv::WINDOW_NORMAL); 
 		cv::imshow( "Display window0", img);
@@ -227,7 +227,8 @@ int main(int argc, char **argv)
 
 		cv::Mat spatimg2(RES, RES, CV_32F, spmat2);
 		spatimg2.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window2", cv::WINDOW_NORMAL); 			cv::imshow( "Display window2", img ); 
+		cv::namedWindow( "Display window2", cv::WINDOW_NORMAL); 
+		cv::imshow( "Display window2", img ); 
 		cv::waitKey(0);
 
 		cv::Mat spatimg3(RES, RES, CV_32F, spmat3);
@@ -241,8 +242,7 @@ int main(int argc, char **argv)
 		cv::namedWindow( "Display window4", cv::WINDOW_NORMAL); 
 		cv::imshow( "Display window4", img );               
 		cv::waitKey(0);
-		*/
-
+	
 		ROS_INFO("Environment landscapes generated succesfully");
 	}
 	else
@@ -368,11 +368,11 @@ int main(int argc, char **argv)
 			init.z = 0;
 
 			// Define goal region
-			goal_reg.center_x = goal.x;
-			goal_reg.center_y = goal.y;
+			goal_reg.center_x = target.x; //TEST
+			goal_reg.center_y = target.y; //TEST
 			goal_reg.center_z = 0;
-			goal_reg.size_x = 10;
-			goal_reg.size_y = 10;
+			goal_reg.size_x = 20;
+			goal_reg.size_y = 20;
 			goal_reg.size_z = 0;
 
 			// Note: workscape and object regions already defined

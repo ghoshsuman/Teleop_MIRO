@@ -52,7 +52,7 @@ bool findTarget(miro_teleop::GestureProcessing::Request  &req,
 	{
 		/* If not, find target position in the x-y plane */
 
-		double a = -position.z/(direction.z());
+		double a = -(position.z-80)/(direction.z());
 		res.target.x = position.x + a*(direction.x());
 		res.target.y = position.y + a*(direction.y());
 		res.target.theta = atan2(res.target.y-position.y, 

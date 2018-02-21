@@ -43,10 +43,10 @@ int main(int argc, char **argv)
 	/* Definitions */
     	geometry_msgs::Vector3 ref; // Reference position (from trajectory)
 	double dr, dtheta; // Linear and angular displacements
-	double ktheta = 1.0; // Angular control gain
+	double ktheta = 1; // Angular control gain
 	double vr, vtheta; // Desired linear and angular velocities
 	miro_msgs::platform_control cmd_vel; // Message to be published
-	double tol = 5.0;  // Displacement tolerance (in cm)
+	double tol = 20.0;  // Displacement tolerance (in cm)
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "robot_controller");
@@ -74,10 +74,6 @@ int main(int argc, char **argv)
 	robot.theta = 0;
 	*/
 
-	/* Initialize reference with current robot position */
-	ref.x = robot.x;
-	ref.y = robot.y;
-
 	/* Main loop */
 	while (ros::ok())
 	{
@@ -91,9 +87,11 @@ int main(int argc, char **argv)
 		/* Perform control only with flag enabled */
 		if(enable)   
 		{
+			ref = path.front();
 			/* Compute displacements */
 			dr = sqrt(pow(ref.x-robot.x,2)+pow(ref.y-robot.y,2));
 			dtheta = atan2(ref.y-robot.y,ref.x-robot.x)-robot.theta;
+			dtheta = atan2(sin(dtheta),cos(dtheta));
 
 			/* Verify if the robot is close enough to target */
 			if(dr<=tol)
@@ -116,7 +114,7 @@ int main(int argc, char **argv)
 			{
 		
 				/* Obtain reference speeds (linear/angular) */
-      				vr = 400*cos(dtheta); // Max. robot speed (m/s)
+      				vr = 200*cos(dtheta); // Max. robot speed (m/s)
       				vtheta = ktheta*dtheta; // P angular control
 
 				/* Compose message and publish */
@@ -128,7 +126,8 @@ int main(int argc, char **argv)
 							   ref.x,ref.y);
 				ROS_INFO("Robot position: (%f, %f)",
 						   robot.x,robot.y);
-      				ROS_INFO("Set speed linear %f, angular %f\n",
+      				ROS_INFO("Displacement: (%f, %f)",dr,dtheta);
+				ROS_INFO("Set speed linear %f, angular %f\n",
 								  vr,vtheta);
 
 				/* [FOR SIMULATION ONLY] Emulate robot movement

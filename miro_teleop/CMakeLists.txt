@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(miro_teleop)
 
-set(OpenCV_DIR /usr/share/OpenCV/)
+set(OpenCV_DIR /usr/share/OpenCV)
 
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
@@ -66,4 +66,5 @@ catkin_package(CATKIN_DEPENDS message_runtime)
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
