@@ -16,6 +16,7 @@
 #include "miro_teleop/SpatialReasoner.h"
 #include "miro_teleop/PertinenceMapping.h"
 #include "miro_teleop/MonteCarlo.h"
+#include "miro_msgs/platform_control.h"
 #include "rrtstar_msgs/rrtStarSRV.h"
 #include "rrtstar_msgs/Region.h"
 #include <iostream>
@@ -75,8 +76,10 @@ int main(int argc, char **argv)
 	std_msgs::Float64 matrices[NZ*RES*RES]; // From spatial reasoner
 	std_msgs::Float64 landscape[RES*RES]; // From pertinence mapping
 	std_msgs::Bool enable; // Controller enable flag
+	miro_msgs::platform_control cmd_turn; // Turn command for "look"
 	rrtstar_msgs::Region workspace, goal_reg, obs_reg; // For RRT* algorithm
 	geometry_msgs::Vector3 init; // Initial position for the path planner
+	double dtheta; // For turning command
 	double pathsize; // Since RRT* trajectory size is variable
 	int state = 0; // Control flag for the "look" command
 
@@ -95,6 +98,11 @@ int main(int argc, char **argv)
 	n.advertise<miro_teleop::Path>("path", 1);
 	ros::Publisher flag_pub =
 	n.advertise<std_msgs::Bool>("enable", 1);
+	// Publisher to miro
+	ros::Publisher miro_pub = 
+	n.advertise<miro_msgs::platform_control>
+	("/miro/rob01/platform/control", 10);
+
 	// Subscriber from command interpreter
 	ros::Subscriber sub_cmd =
 	n.subscribe("command", 3, getCmd);
@@ -129,25 +137,6 @@ int main(int argc, char **argv)
 
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
-
-	/* [SIMULATION VALUES] - Comment them when using motion capture
-  	gesture.position.x = 140;
-  	gesture.position.y = 140;
-  	gesture.position.z = 20;
-
-  	gesture.orientation.w = 0.707;
-  	gesture.orientation.x = 0;
-  	gesture.orientation.y = 0.707;
-  	gesture.orientation.z = 0;
-
-  	obs.x = 30.00;
-  	obs.y = 20.00;
-  	obs.theta = 0;
-
-  	robot.x = -100.0;
-  	robot.y = -100.0;
-  	robot.theta = 0;
-	*/
 
 	/* Characterize workspace region (predefined) */
 	workspace.center_x = 0;
@@ -201,14 +190,7 @@ int main(int argc, char **argv)
 			if(depth==4)
 			spmat4[l_ind/RES][l_ind%RES]=matrices[i].data*255;
 		}
-
-		// for (int i=0;i<RES;i++){
-		// 	for(int j=0;j<RES;j++){
-		// 		std::cout<<spmat0[i][j]<<",";
-		// 	}
-		// 	std::cout<<"\n";
-		// }
-
+		
 		//Display landscapes (requires opencv package)
 		cv::Mat img;
 
@@ -264,9 +246,7 @@ int main(int argc, char **argv)
 			ROS_INFO("Calling Gesture Processing service");
 			ROS_INFO("Gesture x: %f", gesture.position.x);
 			srv_gest.request.gesture = gesture;
-// target.x=-100;
-// target.y=-100;
-// target.theta=0;
+			
 			if (cli_gest.call(srv_gest))
 			{
 				target = srv_gest.response.target;
@@ -305,11 +285,15 @@ int main(int argc, char **argv)
 			if (cli_pert.call(srv_pert))
 			{
 				float pertmatrix[RES][RES];
-			for (int i=0;i<RES*RES;i++) {
-				landscape[i].data = srv_pert.response.landscape[i].data;
-				//For OpenCV plot
-				pertmatrix[i/RES][i%RES]=srv_pert.response.landscape[i].data*255;
-			}
+				for (int i=0;i<RES*RES;i++) 
+				{
+					landscape[i].data = 
+					srv_pert.response.landscape[i].data;
+					//For OpenCV plot
+					pertmatrix[i/RES][i%RES] =
+					srv_pert.response.landscape[i].data*255;
+				}
+
 				// Verify whether the output is valid
 				if(!std::isfinite(landscape[0].data))
 				{
@@ -323,10 +307,12 @@ int main(int argc, char **argv)
 					//OpenCV plot
 					ROS_INFO("Landscapes mapped");
 					cv::Mat img;
-					cv::Mat pertmap(RES, RES, CV_32F, pertmatrix);
+					cv::Mat pertmap(RES, RES, CV_32F, 
+								pertmatrix);
 					pertmap.convertTo(img, CV_8UC1);
-					cv::namedWindow( "Pertinence", cv::WINDOW_NORMAL);
-					cv::imshow( "Pertinence", img );
+					cv::namedWindow( "Pertinence", 
+							cv::WINDOW_NORMAL);
+					cv::imshow( "Pertinence", img);
 					cv::waitKey(0);
 				}
 			}
@@ -419,6 +405,17 @@ int main(int argc, char **argv)
 				ROS_ERROR("Failed to call RRT* Path Planner");
 				return 1;
 			}
+			}
+
+			// If everything went well, miro turns itself to goal
+			// (only if it is not moving)
+			if(state==4 && !enable.data)
+			{
+				dtheta = atan2(goal.y-robot.y,goal.x-robot.x) 
+								- robot.theta;
+				dtheta = atan2(sin(dtheta),cos(dtheta));
+				cmd_turn.body_move.theta = dtheta;
+				miro_pub.publish(cmd_turn);
 			}
 
 			// Reset command
