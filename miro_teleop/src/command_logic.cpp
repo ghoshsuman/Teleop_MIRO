@@ -264,7 +264,9 @@ int main(int argc, char **argv)
 			ROS_INFO("Calling Gesture Processing service");
 			ROS_INFO("Gesture x: %f", gesture.position.x);
 			srv_gest.request.gesture = gesture;
-
+// target.x=-100;
+// target.y=-100;
+// target.theta=0;
 			if (cli_gest.call(srv_gest))
 			{
 				target = srv_gest.response.target;
@@ -380,8 +382,8 @@ int main(int argc, char **argv)
 			init.z = 0;
 
 			// Define goal region
-			goal_reg.center_x = target.x; //TEST
-			goal_reg.center_y = target.y; //TEST
+			goal_reg.center_x = goal.x; //TEST
+			goal_reg.center_y = goal.y; //TEST
 			goal_reg.center_z = 0;
 			goal_reg.size_x = 20;
 			goal_reg.size_y = 20;
@@ -397,6 +399,7 @@ int main(int argc, char **argv)
 				pathsize = srv_rrts.response.path.size();
 				// Obtain trajectory point-by-point
 				geometry_msgs::Vector3 point;
+				rrtPath.path.clear();
 				for(int i=0; i<pathsize; i++)
 				{
 					point.x = srv_rrts.response.path[i].x;

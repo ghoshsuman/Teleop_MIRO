@@ -6,6 +6,7 @@
 #include "ros/ros.h"
 #include "miro_teleop/PertinenceMapping.h"
 #include <cstdio>
+#include <cmath>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
@@ -14,6 +15,7 @@
 #define VSIZE 400 // Vertical map size (in cm)
 #define NZ 5 // Number of zones
 #define RES 40 // Grid resolution
+#define GAMMA 2.0
 
 /* Service function */
 bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
@@ -45,7 +47,7 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 	/* Calculate point pertinences from input landscapes */
 	double P[4];
 	for(int dir=0;dir<4;dir++) {
-    P[dir] = matrices[Px+RES*Py+RES*RES*dir].data;
+    P[dir] = pow(matrices[Px+RES*Py+RES*RES*dir].data,GAMMA);
     ROS_INFO("P[%d]=%f",dir,P[dir]);
   }
 

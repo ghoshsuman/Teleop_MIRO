@@ -18,14 +18,16 @@ std::vector<geometry_msgs::Vector3> path; // Trajectory array
 geometry_msgs::Pose2D robot; // Robot position
 
 /* Subscriber callback functions */
-void getPoint(const miro_teleop::Path::ConstPtr& point)
+void getPoint(const miro_teleop::Path::ConstPtr& points)
 {
 	/* Append every path position received to current reference path */
-	// miro_teleop::Path rrtPath = *point;
 	path.clear();
-	for(int i=0;i< point->path.size();i++)
-		path.push_back(point->path[i]);
+	// path = points->path;
+	ROS_INFO("Received new path");
+	for(int i=0;i< points->path.size();i++)
+		path.push_back(points->path[i]);
 }
+
 void getStatus(const std_msgs::Bool::ConstPtr& status)
 {
 	/* Obtain enable/disable flag from master */
@@ -36,8 +38,8 @@ void getStatus(const std_msgs::Bool::ConstPtr& status)
 void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 {
 	/* Obtain current robot position from motion capture */
-	robot.x = 100*pose->x;
-	robot.y = 100*pose->y;
+	robot.x = 100*pose->x; //in cm
+	robot.y = 100*pose->y; //in cm
 	robot.theta = pose->theta;
 }
 
@@ -45,7 +47,7 @@ void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 int main(int argc, char **argv)
 {
 	/* Definitions */
-    	geometry_msgs::Vector3 ref; // Reference position (from trajectory)
+	geometry_msgs::Vector3 ref; // Reference position (from trajectory)
 	double dr, dtheta; // Linear and angular displacements
 	double ktheta = 1; // Angular control gain
 	double vr, vtheta; // Desired linear and angular velocities
@@ -54,18 +56,18 @@ int main(int argc, char **argv)
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "robot_controller");
-  	ros::NodeHandle n;
+	ros::NodeHandle n;
 
 	/* Initialize publishers and subscribers */
-  	ros::Publisher  ctl_pub =
-		n.advertise<miro_msgs::platform_control>
-					("/miro/rob01/platform/control", 10);
+	ros::Publisher  ctl_pub =
+	n.advertise<miro_msgs::platform_control>
+	("/miro/rob01/platform/control", 10);
 	ros::Subscriber path_sub =
-		n.subscribe("path", 1, getPoint);
+	n.subscribe("path", 1, getPoint);
 	ros::Subscriber en_sub =
-		n.subscribe("enable", 1, getStatus);
+	n.subscribe("enable", 1, getStatus);
 	ros::Subscriber mocap_sub =
-		n.subscribe("Robot/ground_pose", 10, getRobotPose);
+	n.subscribe("Robot/ground_pose", 10, getRobotPose);
 
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
@@ -83,9 +85,9 @@ int main(int argc, char **argv)
 	{
 
 		/* [DEBUG] TEST RANDOM MSG TO MIRO
-			cmd_vel.body_vel.linear.x = 250;
-			cmd_vel.body_vel.angular.z = 0.01;
-			ctl_pub.publish(cmd_vel);
+		cmd_vel.body_vel.linear.x = 250;
+		cmd_vel.body_vel.angular.z = 0.01;
+		ctl_pub.publish(cmd_vel);
 		*/
 
 		/* Perform control only with flag enabled */
@@ -101,10 +103,10 @@ int main(int argc, char **argv)
 			if(dr<=tol)
 			{
 				/* Obtain new reference position */
-      				if(!path.empty())
+				if(!path.empty())
 				{
 					ref = path.front();
-      					path.erase(path.begin());
+					path.erase(path.begin());
 				}
 				else
 				{
@@ -118,21 +120,21 @@ int main(int argc, char **argv)
 			{
 
 				/* Obtain reference speeds (linear/angular) */
-      				vr = 200*cos(dtheta); // Max. robot speed (m/s)
-      				vtheta = ktheta*dtheta; // P angular control
+				vr = 200*cos(dtheta); // Max. robot speed (m/s)
+				vtheta = ktheta*dtheta; // P angular control
 
 				/* Compose message and publish */
-      				cmd_vel.body_vel.linear.x = vr;
-      				cmd_vel.body_vel.angular.z = vtheta;
-      				ctl_pub.publish(cmd_vel);
+				cmd_vel.body_vel.linear.x = vr;
+				cmd_vel.body_vel.angular.z = vtheta;
+				ctl_pub.publish(cmd_vel);
 
-		     		ROS_INFO("Position reference: (%f, %f)",
-							   ref.x,ref.y);
+				ROS_INFO("Position reference: (%f, %f)",
+				ref.x,ref.y);
 				ROS_INFO("Robot position: (%f, %f)",
-						   robot.x,robot.y);
-      				ROS_INFO("Displacement: (%f, %f)",dr,dtheta);
+				robot.x,robot.y);
+				ROS_INFO("Displacement: (%f, %f)",dr,dtheta);
 				ROS_INFO("Set speed linear %f, angular %f\n",
-								  vr,vtheta);
+				vr,vtheta);
 
 				/* [FOR SIMULATION ONLY] Emulate robot movement
 				double DT = 0.1;
@@ -150,8 +152,8 @@ int main(int argc, char **argv)
 		}
 
 		/* Spin and wait for next period */
-    		ros::spinOnce();
-    		loop_rate.sleep();
+		ros::spinOnce();
+		loop_rate.sleep();
 	}
 
 	return 0;
