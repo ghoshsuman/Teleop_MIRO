@@ -71,5 +71,4 @@ catkin_package(CATKIN_DEPENDS message_runtime)
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
 )
