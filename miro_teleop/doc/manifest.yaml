@@ -1,0 +1,29 @@
+actions: []
+authors: ''
+brief: ''
+bugtracker: ''
+depends:
+- rrtStarMsgs
+- catkin
+- roscpp
+- message_runtime
+- std_msgs
+- rospy
+- message_generation
+- geometry_msgs
+description: The miro_teleop package
+license: TODO
+maintainers: Mateus Sanches Moura <mateus.sm93@gmail.com>, Suman Ghosh <sumanghosh29@gmail.com>
+msgs:
+- Region
+- platform_control
+- Path
+package_type: package
+repo_url: ''
+srvs:
+- SpatialReasoner
+- GestureProcessing
+- PertinenceMapping
+- rrtStarSRV
+- MonteCarlo
+url: https://github.com/ghoshsuman/Teleop_MIRO

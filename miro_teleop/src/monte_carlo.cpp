@@ -35,7 +35,7 @@ int quantize(float x, float xmin, float xmax, float quantum)
 bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
   miro_teleop::MonteCarlo::Response &res)
 {
-   	int iters = 10000, batch = 1, max_x, max_y, count = 0;
+   	int iters = 1000, batch = 1, max_x, max_y, count = 0;
     	float quantum = 10.0, sdx = 30, sdy = 30, rx, ry, xmin=-200, xmax=200, ymin=-200, ymax=200;
     	float max_obj = 0, obj;
 
@@ -52,7 +52,8 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
 
     	// For boost with c++98
     	boost::mt19937 *rng = new boost::mt19937();
-    	rng->seed(time(NULL));
+
+      rng->seed(time(NULL));
 
     	//Normal Distribution
     	//boost::normal_distribution<> distx(req.P.x, sdx);
@@ -62,11 +63,10 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
 
     	// Uniform Distribution
     	boost::random::uniform_real_distribution<> distx(xmin, xmax);
-    	boost::random::uniform_real_distribution<> disty(ymin, ymax);
-    	boost::variate_generator< boost::mt19937, 
-		boost::random::uniform_real_distribution<> > dx(*rng, distx);
-    	boost::variate_generator< boost::mt19937, 
-		boost::random::uniform_real_distribution<> > dy(*rng, disty);
+    	// boost::random::uniform_real_distribution<> disty(ymin, ymax);
+    	boost::variate_generator< boost::mt19937,	boost::random::uniform_real_distribution<> > dx(*rng, distx);
+    // 	boost::variate_generator< boost::mt19937,
+		// boost::random::uniform_real_distribution<> > dy(*rng, disty);
 
     	//For c++98
     	//std::srand(std::time(NULL));
@@ -74,18 +74,21 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
     while(max_obj<PERT_THRESH){
       for (int i = 1; i <= iters; i++) {
         rx=dx();
-        ry=dy();
+        ry=dx();
         std::cout<<"Random point generated at ("<<rx<<","<<ry<<") ";
         //Excluding points on and outside the boundary
         if(rx>xmin && rx<xmax && ry>ymin && ry<ymax){
           int ncols = ceil((xmax-xmin)/quantum);
           int nrows = ceil((ymax-ymin)/quantum);
           int index_x = quantize(rx, xmin, xmax, quantum);
-          int index_y = (quantize(ry, ymin, ymax, quantum)); //Inverting to maintain mapping consistency with matrix formed by pertinence mapper
+          int index_y = (nrows-1-quantize(ry, ymin, ymax, quantum)); //Inverting to maintain mapping consistency with matrix formed by pertinence mapper
 
           obj = landscape[index_y*ncols + index_x].data;
           std::cout<<"val = "<<obj<<std::endl;
-          if(obj>max_obj) {
+          if(obj>1){
+            ROS_INFO("rx=%f, ry=%f, obj=%f, (%d,%d)\n", rx, ry, obj, index_x, index_y);
+          }
+          if(obj>max_obj && obj<=1) {
             max_obj=obj;
             max_x=rx;
             max_y=ry;
@@ -105,7 +108,7 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
 
     res.goal.x = max_x;
     res.goal.y = max_y;
-    ROS_INFO("Goal position: (%f,%f)", res.goal.x, res.goal.y);
+    ROS_INFO("Goal position: (%f,%f) with val=%f", res.goal.x, res.goal.y, max_obj);
     return true;
   }
 

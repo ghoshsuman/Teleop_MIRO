@@ -25,6 +25,11 @@ add_service_files(
   PertinenceMapping.srv
 )
 
+add_message_files(
+  FILES
+  Path.msg
+)
+
 generate_messages(
   DEPENDENCIES
   std_msgs

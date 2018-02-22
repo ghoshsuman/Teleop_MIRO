@@ -3,6 +3,7 @@
 /* Robot Controller node source code */
 
 /* Libraries */
+#include "miro_teleop/Path.h"
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 #include "miro_msgs/platform_control.h"
@@ -17,10 +18,13 @@ std::vector<geometry_msgs::Vector3> path; // Trajectory array
 geometry_msgs::Pose2D robot; // Robot position
 
 /* Subscriber callback functions */
-void getPoint(const geometry_msgs::Vector3::ConstPtr& point)
+void getPoint(const miro_teleop::Path::ConstPtr& point)
 {
 	/* Append every path position received to current reference path */
-	path.push_back(*point);
+	// miro_teleop::Path rrtPath = *point;
+	path.clear();
+	for(int i=0;i< point->path.size();i++)
+		path.push_back(point->path[i]);
 }
 void getStatus(const std_msgs::Bool::ConstPtr& status)
 {
@@ -53,14 +57,14 @@ int main(int argc, char **argv)
   	ros::NodeHandle n;
 
 	/* Initialize publishers and subscribers */
-  	ros::Publisher  ctl_pub = 
+  	ros::Publisher  ctl_pub =
 		n.advertise<miro_msgs::platform_control>
 					("/miro/rob01/platform/control", 10);
-	ros::Subscriber path_sub = 
-		n.subscribe("path", 1000, getPoint);
-	ros::Subscriber en_sub = 
-		n.subscribe("enable", 1, getStatus);	
-	ros::Subscriber mocap_sub = 
+	ros::Subscriber path_sub =
+		n.subscribe("path", 1, getPoint);
+	ros::Subscriber en_sub =
+		n.subscribe("enable", 1, getStatus);
+	ros::Subscriber mocap_sub =
 		n.subscribe("Robot/ground_pose", 10, getRobotPose);
 
 	/* Update rate (period) */
@@ -77,7 +81,7 @@ int main(int argc, char **argv)
 	/* Main loop */
 	while (ros::ok())
 	{
-	
+
 		/* [DEBUG] TEST RANDOM MSG TO MIRO
 			cmd_vel.body_vel.linear.x = 250;
 			cmd_vel.body_vel.angular.z = 0.01;
@@ -85,7 +89,7 @@ int main(int argc, char **argv)
 		*/
 
 		/* Perform control only with flag enabled */
-		if(enable)   
+		if(enable)
 		{
 			ref = path.front();
 			/* Compute displacements */
@@ -98,7 +102,7 @@ int main(int argc, char **argv)
 			{
 				/* Obtain new reference position */
       				if(!path.empty())
-				{	
+				{
 					ref = path.front();
       					path.erase(path.begin());
 				}
@@ -112,7 +116,7 @@ int main(int argc, char **argv)
 			}
 			else
 			{
-		
+
 				/* Obtain reference speeds (linear/angular) */
       				vr = 200*cos(dtheta); // Max. robot speed (m/s)
       				vtheta = ktheta*dtheta; // P angular control

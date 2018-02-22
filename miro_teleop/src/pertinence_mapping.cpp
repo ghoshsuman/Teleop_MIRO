@@ -6,6 +6,8 @@
 #include "ros/ros.h"
 #include "miro_teleop/PertinenceMapping.h"
 #include <cstdio>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 /* Constants */
 #define HSIZE 400 // Horizontal map size (in cm)
@@ -35,23 +37,26 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 	for(int i=0;i<req.matrices.size();i++)
 		matrices[i].data = req.matrices[i].data;
 
-	/* Extract target coordinates and map to grid */ 
+	/* Extract target coordinates and map to grid */
 	int Px = floor((req.target.x+HSIZE/2)*RES/HSIZE);
-	int Py = floor((req.target.y+VSIZE/2)*RES/VSIZE);
+	int Py = RES-1-floor((req.target.y+VSIZE/2)*RES/VSIZE); //Inverting y coordinate to match matrix ordering
 	ROS_INFO("Point element coordinates: [%d, %d]",Px,Py);
 
 	/* Calculate point pertinences from input landscapes */
 	double P[4];
-	for(int dir=0;dir<4;dir++) P[dir] 
-			= matrices[Px+RES*Py+RES*RES*dir].data;	
+	for(int dir=0;dir<4;dir++) {
+    P[dir] = matrices[Px+RES*Py+RES*RES*dir].data;
+    ROS_INFO("P[%d]=%f",dir,P[dir]);
+  }
 
 	/* Perform mapping of all landscapes into one */
+  // i = columns, j = rows
 	for(int i=0;i<RES;i++)
 	{
 		for(int j=0;j<RES;j++)
 		{
-			landscape[i+RES*j].data = 
-				(P[0]*matrices[i+RES*j].data + 
+			landscape[i+RES*j].data =
+				(P[0]*matrices[i+RES*j].data +
 				 P[1]*matrices[i+RES*j+1*RES*RES].data +
 				 P[2]*matrices[i+RES*j+2*RES*RES].data +
 				 P[3]*matrices[i+RES*j+3*RES*RES].data)
@@ -59,23 +64,22 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 			if(landscape[i+RES*j].data>max)
 				max = landscape[i+RES*j].data;
 		}
-	}		
-	
-
-	/* Attach obtained matrix to response */	
+	}
+	/* Attach obtained matrix to response */
 	for(int i=0;i<RES*RES;i++)
-	{ 
+	{
 		landscape[i].data = (landscape[i].data)/max;
 		res.landscape.push_back(landscape[i]);
 	}
+
 
 	ROS_INFO("Successfully mapped the pertinences");
 
 	/* Optional: Print matrices */
 	ROS_INFO("Matrix generated:");
-        for (int i=0;i<RES;i++)
+        for (int j=0;j<RES;j++)
         {
-                for (int j=0;j<RES;j++)
+                for (int i=0;i<RES;i++)
                         printf("%3.2f ",landscape[i+j*RES].data);
                 printf("\n");
         }
@@ -89,7 +93,7 @@ int main(int argc, char **argv)
 	/* Initialize, assign a node handler and advertise service */
 	ros::init(argc, argv, "pertinence_mapping_server");
 	ros::NodeHandle n;
-	ros::ServiceServer service = 
+	ros::ServiceServer service =
 		n.advertiseService("pertinence_mapper", PertinenceMapper);
 	ROS_INFO("Pertinence Mapping service active");
 	ros::spin();

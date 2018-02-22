@@ -3,6 +3,7 @@
 /* Command Logic (Master) node source code */
 
 /* Libraries */
+
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/Float64.h"
@@ -19,7 +20,7 @@
 #include "rrtstar_msgs/Region.h"
 #include <iostream>
 #include <cmath>
-
+#include "miro_teleop/Path.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
@@ -70,7 +71,7 @@ int main(int argc, char **argv)
 {
 	/* Definitions */
 	geometry_msgs::Pose2D target, goal; // Target and goal positions
-	geometry_msgs::Vector3 path[1000]; // Trajectory to be published
+	miro_teleop::Path rrtPath; // Trajectory to be published
 	std_msgs::Float64 matrices[NZ*RES*RES]; // From spatial reasoner
 	std_msgs::Float64 landscape[RES*RES]; // From pertinence mapping
 	std_msgs::Bool enable; // Controller enable flag
@@ -83,7 +84,7 @@ int main(int argc, char **argv)
 	std_msgs::Float64 obsdim[2];
 	obsdim[0].data = 80;
 	obsdim[1].data = 80;
-	
+
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
 	ros::NodeHandle n;
@@ -91,7 +92,7 @@ int main(int argc, char **argv)
 	/* Initialize publishers and subscribers */
 	// Publishers to robot controller
 	ros::Publisher path_pub =
-	n.advertise<geometry_msgs::Vector3>("path", 1000);
+	n.advertise<miro_teleop::Path>("path", 1);
 	ros::Publisher flag_pub =
 	n.advertise<std_msgs::Bool>("enable", 1);
 	// Subscriber from command interpreter
@@ -145,7 +146,7 @@ int main(int argc, char **argv)
 
   	robot.x = -100.0;
   	robot.y = -100.0;
-  	robot.theta = 0; 
+  	robot.theta = 0;
 	*/
 
 	/* Characterize workspace region (predefined) */
@@ -181,8 +182,8 @@ int main(int argc, char **argv)
 	if (cli_spat.call(srv_spat))
 	{
 		// Matrices to be plotted by opencv
-		float   spmat0[RES][RES], spmat1[RES][RES], 
-			spmat2[RES][RES], spmat3[RES][RES], 
+		float   spmat0[RES][RES], spmat1[RES][RES],
+			spmat2[RES][RES], spmat3[RES][RES],
 			spmat4[RES][RES];
 
 		for (int i=0;i<NZ*RES*RES;i++){
@@ -208,41 +209,41 @@ int main(int argc, char **argv)
 		// 	std::cout<<"\n";
 		// }
 
-		//Display landscapes (requires opencv package) 
+		//Display landscapes (requires opencv package)
 		cv::Mat img;
 
 		// For each matrix, create a window and display image inside
 		cv::Mat spatimg0(RES, RES, CV_32F, spmat0);
-		spatimg0.convertTo(img, CV_8UC1);		
+		spatimg0.convertTo(img, CV_8UC1);
 		// applyColorMap( spatimg0, img, COLORMAP_HOT );
-		cv::namedWindow( "Display window0", cv::WINDOW_NORMAL); 
+		cv::namedWindow( "Display window0", cv::WINDOW_NORMAL);
 		cv::imshow( "Display window0", img);
 		cv::waitKey(0);
 
 		cv::Mat spatimg1(RES, RES, CV_32F, spmat1);
 		spatimg1.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window1", cv::WINDOW_NORMAL); 
-		cv::imshow( "Display window1", img );         
+		cv::namedWindow( "Display window1", cv::WINDOW_NORMAL);
+		cv::imshow( "Display window1", img );
 		cv::waitKey(0);
 
 		cv::Mat spatimg2(RES, RES, CV_32F, spmat2);
 		spatimg2.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window2", cv::WINDOW_NORMAL); 
-		cv::imshow( "Display window2", img ); 
+		cv::namedWindow( "Display window2", cv::WINDOW_NORMAL);
+		cv::imshow( "Display window2", img );
 		cv::waitKey(0);
 
 		cv::Mat spatimg3(RES, RES, CV_32F, spmat3);
 		spatimg3.convertTo(img, CV_8UC1);
 		cv::namedWindow( "Display window3", cv::WINDOW_NORMAL);
-		cv::imshow( "Display window3", img );               
+		cv::imshow( "Display window3", img );
 		cv::waitKey(0);
 
 		cv::Mat spatimg4(RES, RES, CV_32F, spmat4);
 		spatimg4.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window4", cv::WINDOW_NORMAL); 
-		cv::imshow( "Display window4", img );               
+		cv::namedWindow( "Display window4", cv::WINDOW_NORMAL);
+		cv::imshow( "Display window4", img );
 		cv::waitKey(0);
-	
+
 		ROS_INFO("Environment landscapes generated succesfully");
 	}
 	else
@@ -268,7 +269,7 @@ int main(int argc, char **argv)
 			{
 				target = srv_gest.response.target;
 				// Verify if target is valid number
-				if(std::isfinite(target.x) && 
+				if(std::isfinite(target.x) &&
 					std::isfinite(target.y))
 				{
 					ROS_INFO("Target obtained: (%f,%f)",
@@ -301,19 +302,30 @@ int main(int argc, char **argv)
 
 			if (cli_pert.call(srv_pert))
 			{
-				for (int i=0;i<RES*RES;i++)
-				landscape[i].data =
-				srv_pert.response.landscape[i].data;
+				float pertmatrix[RES][RES];
+			for (int i=0;i<RES*RES;i++) {
+				landscape[i].data = srv_pert.response.landscape[i].data;
+				//For OpenCV plot
+				pertmatrix[i/RES][i%RES]=srv_pert.response.landscape[i].data*255;
+			}
 				// Verify whether the output is valid
 				if(!std::isfinite(landscape[0].data))
 				{
 					state = 0;
 					ROS_INFO("Invalid pertinence mapping");
 				}
-				else 
+				else
 				{
 					state = 2;
+
+					//OpenCV plot
 					ROS_INFO("Landscapes mapped");
+					cv::Mat img;
+					cv::Mat pertmap(RES, RES, CV_32F, pertmatrix);
+					pertmap.convertTo(img, CV_8UC1);
+					cv::namedWindow( "Pertinence", cv::WINDOW_NORMAL);
+					cv::imshow( "Pertinence", img );
+					cv::waitKey(0);
 				}
 			}
 			else
@@ -336,7 +348,7 @@ int main(int argc, char **argv)
 			{
 				goal = srv_mont.response.goal;
 				// Verify if goal returned is valid
-				if(goal.x<-HSIZE/2 || goal.x>HSIZE/2 
+				if(goal.x<-HSIZE/2 || goal.x>HSIZE/2
 				|| goal.y<-VSIZE/2 || goal.y>VSIZE/2)
 				{
 					ROS_INFO("Invalid goal position");
@@ -384,16 +396,19 @@ int main(int argc, char **argv)
 				ROS_INFO("Path found: Publishing...");
 				pathsize = srv_rrts.response.path.size();
 				// Obtain trajectory point-by-point
+				geometry_msgs::Vector3 point;
 				for(int i=0; i<pathsize; i++)
 				{
-					path[i].x = srv_rrts.response.path[i].x;
-					path[i].y = srv_rrts.response.path[i].y;
-					path[i].z = srv_rrts.response.path[i].z;
-					path_pub.publish(path[i]);
+					point.x = srv_rrts.response.path[i].x;
+					point.y = srv_rrts.response.path[i].y;
+					point.z = srv_rrts.response.path[i].z;
+					//path_pub.publish(path[i]);
 					// Only x and y coordinates matter
+					rrtPath.path.push_back(point);
 					ROS_INFO("Point %d: (%f,%f)",
-					i,path[i].x, path[i].y);
+					i,point.x, point.y);
 				}
+				path_pub.publish(rrtPath);
 				state = 4;
 			}
 			else
