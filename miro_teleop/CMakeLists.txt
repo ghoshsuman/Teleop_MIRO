@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(miro_teleop)
+set(OpenCV_DIR /usr/share/OpenCV)
 
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
