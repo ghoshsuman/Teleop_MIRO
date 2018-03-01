@@ -2,6 +2,9 @@
 Software Architecture: Teleoperation with MIRO using gesture and speech
 Using Motion Capture for localization and gesture recognition
 
+**Objective:**
+ROS-based software architecture that drives the MIRO robot to successfully perform a given task, specifically to go to a certain position with respect to a object in the workspace, using pointing gestures and issuing commands via speech which could be interpreted by the system. We use as feedback the information provided by a visual tracking system, in this case the Motion Capture by OptiTrack.
+
 **Usage Instructions:**
 - Clone the master branch of Teleop_MIRO repository inside the `src` folder of your `catkin_ws`
 - Install OpenCV following these instructions: https://docs.opencv.org/master/d7/d9f/tutorial_linux_install.html
@@ -22,10 +25,8 @@ Using Motion Capture for localization and gesture recognition
 - Pointing to a different direction and issuing look command can be used asynchronously in between actions to reset MIRO's trajectory with a new path.
 - Keep an eye on the Motive screen. If rigid bodies are not being tracked properly, you might need to create rigid bodies again with proper alignment.
 
-**Objective:**
- 
 
-Accomplishments:
+**Accomplishments:**
 
 MiRo and obstacle in the motion capture area with markers on them.
 
@@ -39,10 +40,27 @@ MiRo and obstacle in the motion capture area with markers on them.
 
  
 
-Modules (files) in the system:
+**Modules (files) in the system:**
 
-    File 'bla-bla' - does bla-bla. Takes input bla-bla … gives output bla-bla
+    File 'miro_teleop/src/command_logic.cpp' - Main Command Logic node.
+    File 'miro_teleop/src/interpreter.cpp' - Interpreter node.
+    File 'miro_teleop/src/gesture_processing.cpp' - Gesture Processing server.
+    File 'miro_teleop/src/monte_carlo.cpp' - Monte Carlo Simulation server.
+    File 'miro_teleop/src/pertinence_mapping.cpp' - Pertinence Mapping server.
+    File 'miro_teleop/src/spatial_reasoner.cpp' - Spatial Reasoner server.
+    File 'miro_teleop/src/robot_controller.cpp' - Robot Controller node.
+    File 'miro_teleop/srv/GestureProcessing.srv' - Gestutre Processing service
+    File 'miro_teleop/srv/MonteCarlo.srv' - Monte Carlo Simulation service
+    File 'miro_teleop/srv/PertinenceMapping.srv' - Pertinence Mapping service
+    File 'miro_teleop/srv/SpatialReasoner.srv' - Spatial Reasoner service
+    File 'miro_teleop/srv/rrtStarSRV.srv' - RRT* service
+    File 'miro_teleop/msg/Path.msg' - msg used to transfer trajectory from Command Logic to Robot Controller
+    File 'rrtStar/src/rrts_main.cpp' - RRT* server
+    File 'mocap_optitrack-master/launch/mocap.launch' - Launches mocap node
+    File 'miro_teleop/launch/miro_teleop.launch' - Launches the whole application including mocap nodes
+    File 'run_miro_teleop' - Shell script to run all nodes in separate terminals
+    File 'doc/html/index.html' - Doxygen generated documentation
 
  
 
-Limitations of the system:
+**Limitations of the system:**
