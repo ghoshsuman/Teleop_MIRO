@@ -1,8 +1,8 @@
 # Teleop_MIRO
 Software Architecture: Teleoperation with MIRO using gesture and speech
 Using Motion Capture for localization and gesture recognition
-Video demo: https://drive.google.com/drive/folders/1Rzf7u2zSbs5_qsjepidc3gciCaW--DGE
-Report: <Insert PDF link here>
+* Video demo: https://drive.google.com/drive/folders/1Rzf7u2zSbs5_qsjepidc3gciCaW--DGE
+* Report: <Insert PDF link here>
 
 **Objective:**
 ROS-based software architecture that drives the MIRO robot to successfully perform a given task, specifically to go to a certain position with respect to a object in the workspace, using pointing gestures and issuing commands via speech which could be interpreted by the system. We use as feedback the information provided by a visual tracking system, in this case the Motion Capture by OptiTrack.
