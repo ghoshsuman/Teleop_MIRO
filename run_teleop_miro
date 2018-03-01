@@ -2,6 +2,7 @@
 gnome-terminal -x roscore
 
 # Then initialize services (each in a new terminal)
+# (missing speech recognition service)
 gnome-terminal -x rosrun miro_teleop gesture_processing_server
 gnome-terminal -x rosrun miro_teleop pertinence_mapping_server
 gnome-terminal -x rosrun miro_teleop spatial_reasoning_server
@@ -9,7 +10,6 @@ gnome-terminal -x rosrun miro_teleop monte_carlo_server
 gnome-terminal -x rosrun rrtstar rrtstar
 
 # Finally, initialize nodes in the apropriate order
-# (Missing: motion capture and speech recognition nodes)
 gnome-terminal -x roslaunch mocap_optitrack mocap.launch
 gnome-terminal -x rosrun miro_teleop interpreter
 gnome-terminal -x rosrun miro_teleop command_logic

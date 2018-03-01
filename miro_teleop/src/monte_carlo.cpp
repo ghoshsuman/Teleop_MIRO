@@ -1,7 +1,3 @@
-/* University of Genoa - Software Architecture for Robotics (2017/2018) */
-/* Project: Teleoperation with MIRO - Mateus Sanches Moura, Suman Ghosh */
-/* Monte Carlo Simulation service source code */
-
 /* Libraries */
 #include "ros/ros.h"
 #include "miro_teleop/MonteCarlo.h"
@@ -13,14 +9,21 @@
 #include <boost/random/uniform_real_distribution.hpp>
 
 /* Constants */
-#define H_SIZE 400 // Horizontal map size (in cm)
-#define V_SIZE 400 // Vertical map size (in cm)
-#define NZ 5 // Number of zones
+#define HSIZE 400 // Horizontal map size (in cm)
+#define VSIZE 400 // Vertical map size (in cm)
 #define RES 40 // Grid resolution
-#define PERT_THRESH 0.5
+#define PERT_THRESH 0.5 // Minimum acceptable output pertinence
 #define LIMIT 10000 // Limit simulation rounds (timeout constraint)
 
-//Method to quantize coordinate of a point to index of discretized matrix, along a particular dimension
+/** 
+ * Method to quantize the coordinates of a point to indexes of a discretized 
+ * matrix, along a particular dimension.
+ *
+ * @param x Current value
+ * @param xmin Minimum value
+ * @param xmax Maximum value
+ * @param quantum Increment
+ */
 int quantize(float x, float xmin, float xmax, float quantum)
 {
   	int n = ceil((xmax-xmin)/quantum);
@@ -31,12 +34,22 @@ int quantize(float x, float xmin, float xmax, float quantum)
   	return index;
 }
 
-/* Service function */
+/**
+ * Monte Carlo Simulation Service function.
+ * Outputs a goal position by generating multiple random positions.
+ *
+ * Setting a minimum value and a maximum number of iterations, the algorithm
+ * generates a set of random numbers and associates them with their respective
+ * positions within the workspace grid. 
+ * 
+ * The position with maximum value is returned, if sufficiently pertinent.
+ */
 bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
-  miro_teleop::MonteCarlo::Response &res)
+  		  miro_teleop::MonteCarlo::Response &res)
 {
    	int iters = 1000, batch = 1, max_x, max_y, count = 0;
-    	float quantum = 10.0, sdx = 30, sdy = 30, rx, ry, xmin=-200, xmax=200, ymin=-200, ymax=200;
+    	float quantum = HSIZE/RES, sdx = RES, sdy = RES, rx, ry, 
+		xmin=-HSIZE/2, xmax=HSIZE/2, ymin=-VSIZE/2, ymax=VSIZE/2;
     	float max_obj = 0, obj;
 
     	// Obtain input request data
@@ -44,84 +57,78 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
     	for(int i=0;i<req.landscape.size();i++)
     	landscape[i].data = req.landscape[i].data;
 
-    	//For c++11
-    	// random_device rd;
-    	// mt19937 e2(rd());
-    	// normal_distribution<> distx(Px, sdx);
-    	// normal_distribution<> disty(Py, sdy);
-
-    	// For boost with c++98
     	boost::mt19937 *rng = new boost::mt19937();
 
-      rng->seed(time(NULL));
-
-    	//Normal Distribution
-    	//boost::normal_distribution<> distx(req.P.x, sdx);
-    	//boost::normal_distribution<> disty(req.P.y, sdy);
-    	// boost::variate_generator< boost::mt19937, boost::normal_distribution<> > dx(*rng, distx);
-    	// boost::variate_generator< boost::mt19937, boost::normal_distribution<> > dy(*rng, disty);
+      	rng->seed(time(NULL));
 
     	// Uniform Distribution
     	boost::random::uniform_real_distribution<> distx(xmin, xmax);
-    	// boost::random::uniform_real_distribution<> disty(ymin, ymax);
-    	boost::variate_generator< boost::mt19937,	boost::random::uniform_real_distribution<> > dx(*rng, distx);
-    // 	boost::variate_generator< boost::mt19937,
-		// boost::random::uniform_real_distribution<> > dy(*rng, disty);
+    	boost::variate_generator< boost::mt19937,	
+		boost::random::uniform_real_distribution<> > dx(*rng, distx);
+    
+	while(max_obj<PERT_THRESH)
+	{
+      		for (int i = 1; i <= iters; i++) 
+		{
+        		rx=dx();
+        		ry=dx();
+        		std::cout<<"Random point generated at ("<<rx<<","<<
+								  ry<<") ";
+        		// Excluding points on and outside the boundary
+        		if(rx>xmin && rx<xmax && ry>ymin && ry<ymax)
+			{
+          			int ncols = ceil((xmax-xmin)/quantum);
+          			int nrows = ceil((ymax-ymin)/quantum);
+          			int index_x = quantize(rx, xmin, xmax, quantum);
+          			int index_y = (nrows-1-quantize(ry, ymin, ymax,
+								     quantum)); 
+				// Inverting to maintain mapping consistency 
+				// with matrix formed by pertinence mapper
+          			obj = landscape[index_y*ncols + index_x].data;
+          			std::cout<<"val = "<<obj<<std::endl;
+          			if(obj>1)
+				{
+            			ROS_INFO("rx=%f, ry=%f, obj=%f, (%d,%d)\n", 
+						rx, ry, obj, index_x, index_y);
+          			}
+          			if(obj>max_obj && obj<=1) 
+				{
+            				max_obj=obj;
+            				max_x=rx;
+            				max_y=ry;
+          			}
+        		}
+      		}
+      		count++;
+      		if(count>=LIMIT)
+      		{
+        		ROS_INFO("Timeout: maximum number of rounds exceeded");
+        		// Return out-of-bound numbers as a timeout flag
+			res.goal.x = 2*HSIZE;
+			res.goal.y = 2*VSIZE;
+        		return true;
+      		}
+   	}
 
-    	//For c++98
-    	//std::srand(std::time(NULL));
-    	//float e2 =std::rand();
-    while(max_obj<PERT_THRESH){
-      for (int i = 1; i <= iters; i++) {
-        rx=dx();
-        ry=dx();
-        std::cout<<"Random point generated at ("<<rx<<","<<ry<<") ";
-        //Excluding points on and outside the boundary
-        if(rx>xmin && rx<xmax && ry>ymin && ry<ymax){
-          int ncols = ceil((xmax-xmin)/quantum);
-          int nrows = ceil((ymax-ymin)/quantum);
-          int index_x = quantize(rx, xmin, xmax, quantum);
-          int index_y = (nrows-1-quantize(ry, ymin, ymax, quantum)); //Inverting to maintain mapping consistency with matrix formed by pertinence mapper
+    	res.goal.x = max_x;
+    	res.goal.y = max_y;
+    	ROS_INFO("Goal position: (%f,%f) with val=%f", res.goal.x, res.goal.y, 
+								     max_obj);
+    	return true;
+}
 
-          obj = landscape[index_y*ncols + index_x].data;
-          std::cout<<"val = "<<obj<<std::endl;
-          if(obj>1){
-            ROS_INFO("rx=%f, ry=%f, obj=%f, (%d,%d)\n", rx, ry, obj, index_x, index_y);
-          }
-          if(obj>max_obj && obj<=1) {
-            max_obj=obj;
-            max_x=rx;
-            max_y=ry;
-          }
-        }
-      }
-      count++;
-      if(count>=LIMIT)
-      {
-        ROS_INFO("Timeout: maximum number of rounds exceeded");
-        // Return out-of-bound numbers as a timeout flag
-	res.goal.x = 2*H_SIZE;
-	res.goal.y = 2*V_SIZE;
-        return true;
-      }
-    }
+/**
+ * Monte Carlo Simulation Service Main function.
+ * Initializes and advertises the service.
+ */
+int main(int argc, char **argv)
+{
+    	ros::init(argc, argv, "monte_carlo_server");
+    	ros::NodeHandle n;
+    	ros::ServiceServer service =
+    		n.advertiseService("monte_carlo", MCSimulation);
+    	ROS_INFO("Monte Carlo Simulation service active");
+    	ros::spin();
 
-    res.goal.x = max_x;
-    res.goal.y = max_y;
-    ROS_INFO("Goal position: (%f,%f) with val=%f", res.goal.x, res.goal.y, max_obj);
-    return true;
-  }
-
-  /* Main function */
-  int main(int argc, char **argv)
-  {
-    /* Initialize, assign a node handler and advertise service */
-    ros::init(argc, argv, "monte_carlo_server");
-    ros::NodeHandle n;
-    ros::ServiceServer service =
-    n.advertiseService("monte_carlo", MCSimulation);
-    ROS_INFO("Monte Carlo Simulation service active");
-    ros::spin();
-
-    return 0;
-  }
+    	return 0;
+}

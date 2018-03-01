@@ -1,19 +1,24 @@
-/* University of Genoa - Software Architecture for Robotics (2017/2018) */
-/* Project: Teleoperation with MIRO - Mateus Sanches Moura, Suman Ghosh */
-/* Command Interpreter node source code */
-
 /* Libraries */
 #include "ros/ros.h"
 #include "std_msgs/UInt8.h"
 #include <iostream>
 #include <string>
 
-/* Main function */
+/**
+ * Command Interpreter Node main function.
+ * Obtains speech from user and translate them into commands.
+ *
+ * The command strings input by the user (typed in the terminal) are mapped to 
+ * flags (integer values) and sent to the Command Logic Node.
+ *
+ * If sentences are received, parsing the text is necessary, which must be done
+ * by calling the Speech Recognition Node (currently in development).
+ */
 int main(int argc, char **argv)
 {
 	/* Definitions */
- 	std_msgs::UInt8 msg; // Command tag associated and sent to master node
- 	std::string cmd; // Command string parsed by speech recognition
+ 	std_msgs::UInt8 msg; // Command tag associated and published.
+ 	std::string cmd; // Command string parsed by speech recognition.
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "interpreter");
@@ -31,7 +36,7 @@ int main(int argc, char **argv)
 	/* Main loop */
 	while (ros::ok())
 	{
-		/* TODO [BY NOW RECEIVING INPUT DIRECTLY FROM USER] */
+		/* Receiving input from the user */
 		std::cout << "Awaiting command: ";
 		std::cin >> cmd;
 

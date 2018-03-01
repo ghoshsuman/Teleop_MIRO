@@ -1,9 +1,4 @@
-/* University of Genoa - Software Architecture for Robotics (2017/2018) */
-/* Project: Teleoperation with MIRO - Mateus Sanches Moura, Suman Ghosh */
-/* Command Logic (Master) node source code */
-
 /* Libraries */
-
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/Float64.h"
@@ -25,7 +20,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-
 /* Definitions */
 #define RES 40 // Grid resolution
 #define NZ 5 // Number of relations (north, south, west, east, distance-to)
@@ -37,37 +31,87 @@ std_msgs::UInt8 cmd; // Command tag received from interpreter
 geometry_msgs::Pose2D obs, robot; // Obstacle and robot positions from mocap
 geometry_msgs::Pose gesture; // Gesture information from mocap
 
-/* Subscriber callback functions */
+/** 
+ * Subscriber callback function.
+ * Obtains command tag from Interpreter node. 
+ */
 void getCmd(const std_msgs::UInt8::ConstPtr& msg)
 {
-	/* Obtain command tag from interpreter */
 	cmd.data = msg->data;
 	ROS_INFO("Command received from interpreter");
 }
+
+/** 
+ * Subscriber callback function.
+ * Obtains current robot pose from Motion Capture node. 
+ */
 void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 {
-	/* Obtain robot position from mocap */
 	robot.x = 100*groundpose->x;
 	robot.y = 100*groundpose->y;
 	robot.theta = groundpose->theta;
 }
+
+/** 
+ * Subscriber callback function.
+ * Obtains current gesture pose from Motion Capture node. 
+ */
 void getGesture(const geometry_msgs::PoseStamped::ConstPtr& pose)
 {
-	/* Obtain gesture information from mocap */
 	gesture.orientation = pose->pose.orientation;
 	gesture.position.x = 100*pose->pose.position.x;
 	gesture.position.y = 100*pose->pose.position.y;
 	gesture.position.z = 100*pose->pose.position.z;
 }
+
+/** 
+ * Subscriber callback function.
+ * Obtains obstacle pose from Motion Capture node. 
+ */
 void getObstaclePose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 {
-	/* Obtain obstacle position from mocap */
 	obs.x = 100*groundpose->x;
 	obs.y = 100*groundpose->y;
 	obs.theta = groundpose->theta;
 }
 
-/* Main function */
+/** 
+ * OpenCV Plot function.
+ * Attaches matrix information to an img variable and displays it on screen. 
+ */
+void plot(const char* name, float matrix[][RES])
+{
+	cv::Mat img;
+	cv::Mat map(RES, RES, CV_32F, matrix);
+	map.convertTo(img, CV_8UC1);
+	cv::namedWindow(name, cv::WINDOW_NORMAL);
+	cv::imshow(name, img);
+	cv::waitKey(0);
+}
+
+/**
+ * Command Logic Node main function.
+ * Calls services and set robot motion according to commands received.
+ * 
+ * In its initialization, the node calls the Spatial Reasoner service once to 
+ * obtain all landscapes from the current workspace setting. Then, the execution
+ * flow will depend on the command received from the Interpreter:
+ *
+ * If cmd = 1 (look), the following services are called in this order:
+ * Gesture Processing - returns the target position
+ * Pertinence Mapping - returns the mapped fuzzy landscape
+ * Monte Carlo Simulation - computes the goal position
+ * RRT* Path Planner - Generates optimal trajectory from robot position to goal
+ * The trajectory obtained is published to the Robot Controller. 
+ *
+ * If cmd = 2 (go), the flag enable is set to 'true' and also sent to the 
+ * Controller. In this moment, MIRO should move.
+ *
+ * If cmd = 3 (stop), the same flag is set to 'false' and sent to Controller.
+ * The robot should stop.
+ * 
+ * If any other command tag is received, it is ignored.
+ */
 int main(int argc, char **argv)
 {
 	/* Definitions */
@@ -82,6 +126,8 @@ int main(int argc, char **argv)
 	double dtheta; // For turning command
 	double pathsize; // Since RRT* trajectory size is variable
 	int state = 0; // Control flag for the "look" command
+
+	enable.data = false;
 
 	/* Obstacle dimensions (predefined) */
 	std_msgs::Float64 obsdim[2];
@@ -191,40 +237,12 @@ int main(int argc, char **argv)
 			spmat4[l_ind/RES][l_ind%RES]=matrices[i].data*255;
 		}
 		
-		//Display landscapes (requires opencv package)
-		cv::Mat img;
-
-		// For each matrix, create a window and display image inside
-		cv::Mat spatimg0(RES, RES, CV_32F, spmat0);
-		spatimg0.convertTo(img, CV_8UC1);
-		// applyColorMap( spatimg0, img, COLORMAP_HOT );
-		cv::namedWindow( "Display window0", cv::WINDOW_NORMAL);
-		cv::imshow( "Display window0", img);
-		cv::waitKey(0);
-
-		cv::Mat spatimg1(RES, RES, CV_32F, spmat1);
-		spatimg1.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window1", cv::WINDOW_NORMAL);
-		cv::imshow( "Display window1", img );
-		cv::waitKey(0);
-
-		cv::Mat spatimg2(RES, RES, CV_32F, spmat2);
-		spatimg2.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window2", cv::WINDOW_NORMAL);
-		cv::imshow( "Display window2", img );
-		cv::waitKey(0);
-
-		cv::Mat spatimg3(RES, RES, CV_32F, spmat3);
-		spatimg3.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window3", cv::WINDOW_NORMAL);
-		cv::imshow( "Display window3", img );
-		cv::waitKey(0);
-
-		cv::Mat spatimg4(RES, RES, CV_32F, spmat4);
-		spatimg4.convertTo(img, CV_8UC1);
-		cv::namedWindow( "Display window4", cv::WINDOW_NORMAL);
-		cv::imshow( "Display window4", img );
-		cv::waitKey(0);
+		// Display landscapes (requires opencv package)
+		plot("North", spmat0);
+		plot("West" , spmat1);
+		plot("South", spmat2);
+		plot("East",  spmat3);
+		plot("Distance", spmat4);
 
 		ROS_INFO("Environment landscapes generated succesfully");
 	}
@@ -303,17 +321,9 @@ int main(int argc, char **argv)
 				else
 				{
 					state = 2;
-
-					//OpenCV plot
 					ROS_INFO("Landscapes mapped");
-					cv::Mat img;
-					cv::Mat pertmap(RES, RES, CV_32F, 
-								pertmatrix);
-					pertmap.convertTo(img, CV_8UC1);
-					cv::namedWindow( "Pertinence", 
-							cv::WINDOW_NORMAL);
-					cv::imshow( "Pertinence", img);
-					cv::waitKey(0);
+					// Plot using opencv
+					plot("Mapped landscape", pertmatrix);	
 				}
 			}
 			else
@@ -391,7 +401,6 @@ int main(int argc, char **argv)
 					point.x = srv_rrts.response.path[i].x;
 					point.y = srv_rrts.response.path[i].y;
 					point.z = srv_rrts.response.path[i].z;
-					//path_pub.publish(path[i]);
 					// Only x and y coordinates matter
 					rrtPath.path.push_back(point);
 					ROS_INFO("Point %d: (%f,%f)",
@@ -409,8 +418,9 @@ int main(int argc, char **argv)
 
 			// If everything went well, miro turns itself to goal
 			// (only if it is not moving)
-			if(state==4 && !enable.data)
+			if(state==4)
 			{
+				ROS_INFO("Look, MiRo!");
 				dtheta = atan2(goal.y-robot.y,goal.x-robot.x) 
 								- robot.theta;
 				dtheta = atan2(sin(dtheta),cos(dtheta));

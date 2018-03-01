@@ -1,7 +1,3 @@
-/* University of Genoa - Software Architecture for Robotics (2017/2018) */
-/* Project: Teleoperation with MIRO - Mateus Sanches Moura, Suman Ghosh */
-/* Gesture Processing service source code */
-
 /* Libraries */
 #include "ros/ros.h"
 #include "tf/tf.h"
@@ -12,8 +8,23 @@
 /* Definitions */
 #define HSIZE 400
 #define VSIZE 400
+#define H 80 // Height of the plane (in cm) with respect to the referential
 
-/* Service function */
+/**
+ * Gesture Processing Service function.
+ * From gesture pose, identifies the pointed position on the plane.
+ *
+ * The Gesture Pose from motion capture contains both the position and 
+ * orientation of the rigid body. 
+ *
+ * Assuming that the initial pose was with the 
+ * hand (or arm) facing the x axis, the direction vector is then computing by
+ * performing a rotation on (1,0,0) of the quaternion received via the 
+ * tf::quatRotate() function.
+ *
+ * Then, the position on the plane is obtained algebraically by the intersection
+ * of the direction line with the plane z = H
+ */
 bool findTarget(miro_teleop::GestureProcessing::Request  &req,
          	miro_teleop::GestureProcessing::Response &res)
 {
@@ -52,7 +63,7 @@ bool findTarget(miro_teleop::GestureProcessing::Request  &req,
 	{
 		/* If not, find target position in the x-y plane */
 
-		double a = -(position.z-80)/(direction.z());
+		double a = -(position.z-H)/(direction.z());
 		res.target.x = position.x + a*(direction.x());
 		res.target.y = position.y + a*(direction.y());
 		res.target.theta = atan2(res.target.y-position.y, 
@@ -65,10 +76,12 @@ bool findTarget(miro_teleop::GestureProcessing::Request  &req,
 	return true;
 }
 
-/* Main function */
+/**
+ * Gesture Processing Service Main function.
+ * Initializes and advertises the service.
+ */
 int main(int argc, char **argv)
 {
-        /* Initialize, assign a node handler and advertise service */
 	ros::init(argc, argv, "gesture_processing_server");
 	ros::NodeHandle n;
 	ros::ServiceServer service = 

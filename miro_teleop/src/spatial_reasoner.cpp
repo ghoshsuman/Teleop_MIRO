@@ -1,21 +1,29 @@
-/* University of Genoa - Software Architecture for Robotics (2017/2018) */
-/* Project: Teleoperation with MIRO - Mateus Sanches Moura, Suman Ghosh */
-/* Spatial Reasoner service source code */
-
 /* Libraries */
 #include "ros/ros.h"
 #include "miro_teleop/SpatialReasoner.h"
 #include <cstdio>
 #include <cmath>
 
-/* Constants */
+/* Definitions */
 #define PI 3.14159
 #define NZ 5 // Number of relations (north, south, west, east, distance-to)
 #define HSIZE 400 // Horizontal map size (in cm)
 #define VSIZE 400 // Vertical map size (in cm)
 #define RES 40 // Grid resolution
 
-/* Service function */
+/**
+ * Spatial Reasoner Service function.
+ * Generates the spatial relation landscape matrices.
+ *
+ * For each matrix, the workspace is discretized to a RESxRES matrix,
+ * each element containing the value corresponding to the pertinence of the
+ * spatial relation referrent to the matrix on a certain object, i.e., the 
+ * degree of certainty that the point is at SUCH direction with respect to 
+ * the object. These values lie bewteen 0 and 1.
+ *
+ * The "distance-to" relation returns the pertinence with respect to a desired
+ * distance range from the object, which can be modified.
+ */
 bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
          	     miro_teleop::SpatialReasoner::Response &res)
 {
@@ -115,10 +123,12 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
   	return true;
 }
 
-/* Main function */
+/**
+ * Spatial Reasoner Service Main function.
+ * Initializes and advertises the service.
+ */
 int main(int argc, char **argv)
 {
-	/* Initialize, assign a node handler and advertise service */
 	ros::init(argc, argv, "spatial_reasoning_server");
 	ros::NodeHandle n;
 	ros::ServiceServer service =
@@ -128,3 +138,4 @@ int main(int argc, char **argv)
 
 	return 0;
 }
+
