@@ -84,8 +84,9 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Subscriber callback function. Obtains current gesture pose from Motion Capture node. </p>
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00046">46</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00057">57</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -102,8 +103,9 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Subscriber callback function. Obtains trajectory from Command Logic node. </p>
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00022">22</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00021">21</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -120,8 +122,9 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Subscriber callback function. Obtains current robot pose from Motion Capture node. </p>
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00039">39</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00046">46</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -138,8 +141,9 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Subscriber callback function. Obtains enable/disable flag from Command Logic node. </p>
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00032">32</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00035">35</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -166,8 +170,12 @@ Variables</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Robot Controller Node main function. Performs robot position and orientation control.</p>
+<p>Given a reference from the trajectory received from the Command Logic, the reference linear and angular velocities are computed based on the current distance and orientation error. This only happens if the flag enable is set to 'true'. Otherwise, the command velocities are set to 0.</p>
+<p>When the reference position is reached (i.e. the distance is less than tol), the new desired position is taken from from the trajectory array.</p>
+<p>If the path is empty, the goal position is considered reached and the enable flag is set to 'false'. </p>
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00054">54</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00078">78</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -182,7 +190,7 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00016">16</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00012">12</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -196,7 +204,7 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00019">19</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00015">15</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -210,7 +218,7 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00017">17</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00013">13</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -224,7 +232,7 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00018">18</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
+<p>Definition at line <a class="el" href="robot__controller_8cpp_source.html#l00014">14</a> of file <a class="el" href="robot__controller_8cpp_source.html">robot_controller.cpp</a>.</p>
 
 </div>
 </div>
@@ -234,7 +242,7 @@ Variables</h2></td></tr>
 <hr size="1"><div style="align: right;">
 <a href="http://wiki.ros.org/miro_teleop">miro_teleop</a><br />
 Author(s): </br />
-<small>autogenerated on Wed Feb 28 2018 18:15:26</small>
+<small>autogenerated on Thu Mar 1 2018 19:25:45</small>
 </div>
 </body>
 </html>

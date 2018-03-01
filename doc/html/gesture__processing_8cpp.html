@@ -45,9 +45,11 @@ Include dependency graph for gesture_processing.cpp:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:accbc671b9a49dadd822cddd2ef6af38f"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gesture__processing_8cpp.html#accbc671b9a49dadd822cddd2ef6af38f">HSIZE</a>&#160;&#160;&#160;300</td></tr>
+<tr class="memitem:abec92cc72a096640b821b8cd56a02495"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gesture__processing_8cpp.html#abec92cc72a096640b821b8cd56a02495">H</a>&#160;&#160;&#160;80</td></tr>
+<tr class="separator:abec92cc72a096640b821b8cd56a02495"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:accbc671b9a49dadd822cddd2ef6af38f"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gesture__processing_8cpp.html#accbc671b9a49dadd822cddd2ef6af38f">HSIZE</a>&#160;&#160;&#160;400</td></tr>
 <tr class="separator:accbc671b9a49dadd822cddd2ef6af38f"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:adc4aa88206975c031eda44fd773e70a6"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gesture__processing_8cpp.html#adc4aa88206975c031eda44fd773e70a6">VSIZE</a>&#160;&#160;&#160;300</td></tr>
+<tr class="memitem:adc4aa88206975c031eda44fd773e70a6"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="gesture__processing_8cpp.html#adc4aa88206975c031eda44fd773e70a6">VSIZE</a>&#160;&#160;&#160;400</td></tr>
 <tr class="separator:adc4aa88206975c031eda44fd773e70a6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
@@ -58,17 +60,31 @@ Functions</h2></td></tr>
 <tr class="separator:a3c04138a5bfe5d72780bb7e82a18e627"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
+<a class="anchor" id="abec92cc72a096640b821b8cd56a02495"></a>
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define H&#160;&#160;&#160;80</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00011">11</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
+
+</div>
+</div>
 <a class="anchor" id="accbc671b9a49dadd822cddd2ef6af38f"></a>
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define HSIZE&#160;&#160;&#160;300</td>
+          <td class="memname">#define HSIZE&#160;&#160;&#160;400</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00013">13</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
+<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00009">9</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
 
 </div>
 </div>
@@ -77,12 +93,12 @@ Functions</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">#define VSIZE&#160;&#160;&#160;300</td>
+          <td class="memname">#define VSIZE&#160;&#160;&#160;400</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00014">14</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
+<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00010">10</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
 
 </div>
 </div>
@@ -110,8 +126,12 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Gesture Processing Service function. From gesture pose, identifies the pointed position on the plane.</p>
+<p>The Gesture Pose from motion capture contains both the position and orientation of the rigid body.</p>
+<p>Assuming that the initial pose was with the hand (or arm) facing the x axis, the direction vector is then computing by performing a rotation on (1,0,0) of the quaternion received via the tf::quatRotate() function.</p>
+<p>Then, the position on the plane is obtained algebraically by the intersection of the direction line with the plane z = H </p>
 
-<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00017">17</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
+<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00028">28</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
 
 </div>
 </div>
@@ -138,8 +158,9 @@ Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
+<p>Gesture Processing Service Main function. Initializes and advertises the service. </p>
 
-<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00069">69</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
+<p>Definition at line <a class="el" href="gesture__processing_8cpp_source.html#l00083">83</a> of file <a class="el" href="gesture__processing_8cpp_source.html">gesture_processing.cpp</a>.</p>
 
 </div>
 </div>
@@ -149,7 +170,7 @@ Functions</h2></td></tr>
 <hr size="1"><div style="align: right;">
 <a href="http://wiki.ros.org/miro_teleop">miro_teleop</a><br />
 Author(s): </br />
-<small>autogenerated on Wed Feb 28 2018 18:15:26</small>
+<small>autogenerated on Thu Mar 1 2018 19:25:45</small>
 </div>
 </body>
 </html>
