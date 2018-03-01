@@ -1,16 +1,16 @@
 # Teleop_MIRO
 Software Architecture: Teleoperation with MIRO using gesture and speech
 Using Motion Capture for localization and gesture recognition
-* Video demo: https://drive.google.com/drive/folders/1Rzf7u2zSbs5_qsjepidc3gciCaW--DGE
-* Report: <Insert PDF link here>
+* Video demo and Report: https://drive.google.com/drive/folders/1Rzf7u2zSbs5_qsjepidc3gciCaW--DGE
 
 **Objective:**
 ROS-based software architecture that drives the MIRO robot to successfully perform a given task, specifically to go to a certain position with respect to a object in the workspace, using pointing gestures and issuing commands via speech which could be interpreted by the system. We use as feedback the information provided by a visual tracking system, in this case the Motion Capture by OptiTrack.
 
 **Usage Instructions:**
 - Clone the master branch of Teleop_MIRO repository inside the `src` folder of your `catkin_ws`
-- Install OpenCV following these instructions: https://docs.opencv.org/master/d7/d9f/tutorial_linux_install.html
-- Set OpenCV path corresponding to your system and add dependency in `miro_teleop/CMakeLists.txt`
+- The following 2 OpenCV steps are **optional**. You can either follow them, or comment out relevant code in `miro_teleop/src/command_logic.cpp`
+    - (optional) Install OpenCV following these instructions: https://docs.opencv.org/master/d7/d9f/tutorial_linux_install.html
+    - (optional) Set OpenCV path corresponding to your system and add dependency in `miro_teleop/CMakeLists.txt`
 - Run `catkin_make` from inside `catkin_ws`
 - Download MIRO MDK and MIRO app from http://labs.consequentialrobotics.com/miro/mdk/
 - Turn on MIRO. Run the app and connect with MIRO, to find MIRO's IP. Ensure your machine is on the same network as MIRO.
