@@ -32,13 +32,13 @@ ROS-based software architecture that drives the MIRO robot to successfully perfo
 
 MiRo and obstacle in the motion capture area with markers on them.
 
-    Pointing gesture on the ground is used to calculate a goal-point where MiRo has to reach.
-    Voice command - look (for now typed in the workstation) is used to orient MiRo towards the goal.
-    Montecarlo simulation is used to generate an approximate point near the goal-point.
-    RRT* planner is used to generate a path from MiRo to the montecarlo given goal-point.
-    Voice command - go (for now typed in the workstation) is used to move MiRo towards the goal, as it avoids the obstacle.
-    MiRo reaches the goal position.
-    MiRo can also be stopped by a voice command - stop (for now typed in the workstation).
+- Pointing gesture on the ground is used to calculate a goal-point where MiRo has to reach.
+- Voice command - look (for now typed in the workstation) is used to orient MiRo towards the goal.
+- Montecarlo simulation is used to generate an approximate point near the goal-point.
+- RRT* planner is used to generate a path from MiRo to the montecarlo given goal-point.
+- Voice command - go (for now typed in the workstation) is used to move MiRo towards the goal, as it avoids the obstacle.
+- MiRo reaches the goal position.
+- MiRo can also be stopped by a voice command - stop (for now typed in the workstation).
 
  
 **Modules (files) in the system:**
