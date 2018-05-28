@@ -1,6 +1,6 @@
 /* Libraries */
 #include "ros/ros.h"
-#include "std_msgs/UInt8.h"
+#include "std_msgs/String.h"
 #include <iostream>
 #include <string>
 
@@ -17,7 +17,7 @@
 int main(int argc, char **argv)
 {
 	/* Definitions */
- 	std_msgs::UInt8 msg; // Command tag associated and published.
+ 	std_msgs::String msg; // Command tag associated and published.
  	std::string cmd; // Command string parsed by speech recognition.
 
 	/* Initialize and assign node handler */
@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 
 	/* Initialize publisher */
 	ros::Publisher cmd_pub = 
-		n.advertise<std_msgs::UInt8>("command", 1);
+		n.advertise<std_msgs::String>("command", 1);
 
 	/* Update rate (period) */
   	ros::Rate loop_rate(10);
@@ -40,18 +40,9 @@ int main(int argc, char **argv)
 		std::cout << "Awaiting command: ";
 		std::cin >> cmd;
 
-		/* Command-tag mapping */
-		if (!cmd.compare("look")) msg.data = 1;
-		else if (!cmd.compare("go")) msg.data = 2;
-		else if (!cmd.compare("stop")) msg.data = 3;
-		else msg.data = 0;
-
-		/* Publish only in case something meaningful was received */
-		if(msg.data>0)
-		{
-			cmd_pub.publish(msg);
-			ROS_INFO("Sent command: [%s] to master",cmd.data());
-		}
+		msg.data = cmd;
+		cmd_pub.publish(msg);
+		ROS_INFO("Sent command: [%s] to master", cmd.data());
 
 		/* Spin and wait for next period */
 		ros::spinOnce();

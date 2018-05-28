@@ -6,7 +6,6 @@
 
 /* Definitions */
 #define PI 3.14159
-#define NZ 5 // Number of relations (north, south, west, east, distance-to)
 #define HSIZE 400 // Horizontal map size (in cm)
 #define VSIZE 400 // Vertical map size (in cm)
 #define RES 40 // Grid resolution
@@ -28,7 +27,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
          	     miro_teleop::SpatialReasoner::Response &res)
 {
 	/* Matrices to be sent back to master (mapped in an 1-D array) */
-	std_msgs::Float64 M[NZ*RES*RES];
+	std_msgs::Float64 M[5*RES*RES];
 
 	/* Obstacle center obtained from motion capture */
 	double xr = req.center.x;
@@ -36,6 +35,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	/* Obstacle dimensions obtained as well */
 	double a = req.dimensions[0].data;
 	double b = req.dimensions[1].data;
+	double dxy = sqrt(a*a+b*b);
 
 	/* Other definitions */
 	double xp, yp, xq, yq, xv, yv;
@@ -62,11 +62,10 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 		/* Otherwise, compute with respect to each direction */
 		else
 		{
-                       	for(int dir=0; dir<NZ-1; dir++)
+                       	for(int dir=0; dir<4; dir++)
                        	{
-                               	angle = dir*PI/2; // Direction angle
-                               	c_ang = cos(angle);
-                               	s_ang = sin(angle);
+                               	c_ang = cos(dir*PI/2);
+                               	s_ang = sin(dir*PI/2);
                                	beta_min = PI/2; // Initial value of beta
                                	dist_min = 1000; // Initial value of distance
                                
@@ -96,7 +95,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 					= fmax(0,1.0-(2.0*beta_min/PI));
 				/* Update the minimum distance of P to object */
                                	M[x+y*RES+4*RES*RES].data 
-				= fmin(1,fmax(0,dist_min*exp(-dist_min/60)/20));
+				= exp(-dist_min*dist_min/(2*dxy*dxy));
                        	}
 		}
 	   }
@@ -106,6 +105,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	for (int i=0;i<NZ*RES*RES;i++) res.matrices.push_back(M[i]);
 
 	/* Optional: Print matrices */
+        /*	
 	for (int dir=0;dir<NZ;dir++) 
 	{
 		ROS_INFO("Printing Matrix %d:",dir+1);
@@ -117,7 +117,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 		}		
 		printf("\n\n");
 	}
-
+	*/
 	ROS_INFO("Successfully generated landscapes");	
 
   	return true;
