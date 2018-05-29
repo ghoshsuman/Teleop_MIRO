@@ -31,7 +31,7 @@ bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
 	ROS_INFO("Request received from central node");
 
 	/* Obtain inputs from request and performs fuzzy and*/
-	for(int i=0;i<req.matrices.size();i++)
+	for(int i=0;i<RES*RES;i++)
 	{
 		M1[i].data = req.M1[i].data;
 		M2[i].data = req.M2[i].data;

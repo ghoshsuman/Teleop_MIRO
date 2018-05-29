@@ -50,7 +50,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 
 	/* Set qualifier */
 	double q;
-	switch req.qualifier.data
+	switch (req.qualifier.data)
 	{
 		case 0: // Weak
 			q = 0.5;
