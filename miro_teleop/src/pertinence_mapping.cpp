@@ -20,47 +20,23 @@
  * Then, a normalization is done to maintain the elements in the range [0,1].
  */
 bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
-         	      miro_teleop::PertinenceMapping::Response &res)
+        			  miro_teleop::PertinenceMapping::Response &res)
 {
-	/* Number of relations */
-	N = req.NumRelations;
-
-	/* Qualifier vector */
-	Q = req.Qualifiers;
-
-	/* Input 3-D matrix to be processed (received from master) */
-	std_msgs::Float64 matrices[N*RES*RES];
+	/* Input matrices to be processed (received from master) */
+	std_msgs::Float64 M1[RES*RES], M2[RES*RES];
 
 	/* Landscape matrix to be returned (mapped into an 1-D array) */
-	std_msgs::Float64 landscape[RES*RES];
+	std_msgs::Float64 MOut[RES*RES];
 
 	ROS_INFO("Request received from central node");
 
-	/* Obtain input from request */
+	/* Obtain inputs from request and performs fuzzy and*/
 	for(int i=0;i<req.matrices.size();i++)
-		matrices[i].data = req.matrices[i].data;
-
-	/* Perform mapping of all landscapes into one */
-  	// Note: i = columns, j = rows
-	for(int i=0;i<RES;i++)
 	{
-		for(int j=0;j<RES;j++)
-		{
-			// Obtain first relation matrix (scaled according to qualifier)
-			landscape[i+RES*j].data = pow(matrices[i+RES*j].data,Q[0]);
-			// Merge (perform fuzzy and) with other relations
-			for(int k=1;k<N;k++)
-			{
-				landscape[i+RES*j].data = 
-					fmin(landscape[i+RES*j].data, 
-							pow(matrices[i+RES*j+k*RES*RES].data,Q[k]);
-			}
-		}
-	}
-	/* Attach obtained matrix to response */
-	for(int i=0;i<RES*RES;i++)
-	{
-		res.landscape.push_back(landscape[i]);
+		M1[i].data = req.M1[i].data;
+		M2[i].data = req.M2[i].data;
+		MOut[i].data = fmin(M1[i].data, M2[i].data);
+		res.MOut.push_back(MOut[i]);
 	}
 
 	ROS_INFO("Successfully mapped the pertinences");
