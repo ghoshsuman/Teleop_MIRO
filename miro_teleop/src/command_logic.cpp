@@ -12,15 +12,19 @@
 #include "miro_teleop/SpatialReasoner.h"
 #include "miro_teleop/PertinenceMapping.h"
 #include "miro_teleop/MonteCarlo.h"
+#include "miro_teleop/Path.h"
 #include "miro_msgs/platform_control.h"
+#include "ros_cagg_msgs/cagg_tags.h"
 #include "rrtstar_msgs/rrtStarSRV.h"
 #include "rrtstar_msgs/Region.h"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 #include <cmath>
 #include <vector>
-#include "miro_teleop/Path.h"
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
+#include <string>
+#include <sstream>
+
 
 /* Definitions */
 #define RES 40 // Grid resolution
@@ -31,11 +35,11 @@
 /* Global variables */
 ros_cagg_msgs::cagg_tags cmd; // Command tag received from interpreter
 geometry_msgs::Pose2D robot, user; // Robot and user positions from mocap
-vector<geometry_msgs::Pose2D> obstacles; //Vector of obstacles
-vector<geometry_msgs::Point> obsdim; //Vector of object dimensions (populated later manually)
+std::vector<geometry_msgs::Pose2D> obstacles; //Vector of obstacles
+std::vector<geometry_msgs::Point> obsdim; //Vector of object dimensions (populated later manually)
 geometry_msgs::Pose gesture; // Gesture information from mocap
-string[] relationships = {"right", "behind", "left", "front", "near"}; //Maintain order
-string[] qualifiers = {"weak", "normal", "strong"};
+std::string relationships[5] = {"right", "behind", "left", "front", "near"}; //Maintain order
+std::string qualifiers[3] = {"weak", "normal", "strong"};
 
 /**
  * Subscriber callback function.
@@ -112,10 +116,10 @@ void plot(const char* name, float matrix[][RES])
 */
 
 int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
-	miro_teleop::SpatialReasoner srv_spat, miro_teleop::PertinenceMapping srv_pert,
-	int state, std_msgs::Float64[] landscape)
+miro_teleop::SpatialReasoner srv_spat, miro_teleop::PertinenceMapping srv_pert, 
+int state, std_msgs::Float64* landscape)
 {
-	std_msgs::Float64[] kernel;
+	std_msgs::Float64* kernel;
 	//Call spatial_reasoner
 	if (cli_spat.call(srv_spat))
 	{
@@ -174,10 +178,29 @@ int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
 	return state;
 }
 
+// Function to verify if some point (x,y) is inside any object
+bool isIn(int i, int j, std::vector<geometry_msgs::Pose2D> obstacles, 
+						std::vector<geometry_msgs::Point> obsdim)
+{
+	double cx, cy, dx, dy, x, y;
+	x = HSIZE/double(2*RES)+HSIZE*(x/double(RES))-HSIZE/2;
+	y = VSIZE/double(2*RES)+VSIZE*(y/double(RES))-VSIZE/2;
+	for (int k = 0; k<obstacles.size(); k++)
+	{
+		cx = obstacles[k].x;
+		cy = obstacles[k].y;
+		dx = obsdim[k].x;
+		dy = obsdim[k].y;
+		if((x>(cx-dx/2))&&(x<(cx+dx/2))&&(y>(cy-dy/2))&&(y<(cy+dy/2)))
+			return true;
+	}
+	return false;
+}
+
 int main(int argc, char **argv)
 {
 	/* Definitions */
-	geometry_msgs::Pose2D gesture_target, goal; // Gesture target and goal positions
+	geometry_msgs::Pose2D target, goal; // Gesture target and goal positions
 	miro_teleop::Path rrtPath; // Trajectory to be published
 	std_msgs::Float64 landscape[RES*RES]; // Final landscape sent to MonteCarlo, updated after each command
 	std_msgs::Bool enable; // Controller enable flag
@@ -214,26 +237,30 @@ int main(int argc, char **argv)
 	ros::Subscriber sub_robot =	n.subscribe("Robot/ground_pose", 1, getRobotPose);
 	ros::Subscriber sub_gesture =	n.subscribe("Gesture/pose", 1, getGesture);
 	ros::Subscriber sub_user =	n.subscribe("User/ground_pose", 1, getUserPose);
-	vector<ros::Subscriber> sub_obs;
+	std::vector<ros::Subscriber> sub_obs;
 	for (int i=0; i<numObs; i++)
 	{
-		sub_obs.push_back(n.subscribe("Obstacle"+i+"/ground_pose", 1, getObstaclePose));
+		std::string ichar = 
+			static_cast<std::ostringstream*>(&(std::ostringstream()<<i))->str();
+		std::string topic_name = 
+			"Obstacle" + ichar + "/ground_pose";
+		sub_obs.push_back(n.subscribe(topic_name, 1, getObstaclePose));
 	}
 
 	/* Initialize service clients and handlers */
-	ros::ServiceClient cli_spat =	n.serviceClient<miro_teleop::SpatialReasoner>("spatial_reasoner");
+	ros::ServiceClient cli_spat = n.serviceClient<miro_teleop::SpatialReasoner>("spatial_reasoner");
 	miro_teleop::SpatialReasoner srv_spat;
 
-	ros::ServiceClient cli_gest =	n.serviceClient<miro_teleop::GestureProcessing>("gesture_processing");
+	ros::ServiceClient cli_gest = n.serviceClient<miro_teleop::GestureProcessing>("gesture_processing");
 	miro_teleop::GestureProcessing srv_gest;
 
-	ros::ServiceClient cli_pert =	n.serviceClient<miro_teleop::PertinenceMapping>("pertinence_mapper");
+	ros::ServiceClient cli_pert = n.serviceClient<miro_teleop::PertinenceMapping>("pertinence_mapper");
 	miro_teleop::PertinenceMapping srv_pert;
 
-	ros::ServiceClient cli_mont =	n.serviceClient<miro_teleop::MonteCarlo>("monte_carlo");
+	ros::ServiceClient cli_mont = n.serviceClient<miro_teleop::MonteCarlo>("monte_carlo");
 	miro_teleop::MonteCarlo srv_mont;
 
-	ros::ServiceClient cli_rrts =	n.serviceClient<rrtstar_msgs::rrtStarSRV>("rrtStarService");
+	ros::ServiceClient cli_rrts = n.serviceClient<rrtstar_msgs::rrtStarSRV>("rrtStarService");
 	rrtstar_msgs::rrtStarSRV srv_rrts;
 
 	/* Update rate (period) */
@@ -265,8 +292,12 @@ int main(int argc, char **argv)
 	ROS_INFO("Command logic (master) node active");
 	ROS_INFO("Initialization: calling spatial reasoner");
 
-	//TODO: Here initialize landscape[] by blacking out all obstacles in a white background
-
+	//Initialize landscape[] by blacking out all obstacles in a white background
+	for (int i=0; i<RES; i++)
+		for (int j=0; j<RES; j++)
+			// If point is not inside any obstacle initial value is 1
+			if(!isIn(i,j,obstacles,obsdim)) landscape[i].data = 1;
+	
 	/* Main loop */
 	while(ros::ok())
 	{
@@ -325,9 +356,9 @@ int main(int argc, char **argv)
 			{
 				//Set inputs for spatial_reasoner
 				srv_spat.request.center = target;
-				srv_spat.request.dimensions[0] = 1;
-				srv_spat.request.dimensions[1] = 1;
-				srv_spat.request.relationship = 4; //relation "near"
+				srv_spat.request.dimensions[0].data = 1;
+				srv_spat.request.dimensions[1].data = 1;
+				srv_spat.request.relationship.data = 4; //relation "near"
 
 				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
 			}
@@ -338,23 +369,23 @@ int main(int argc, char **argv)
 			// [["go","quantifier","strictly"](Optional),["go","relation","right"],["go","object","1"]
 			int objid = cmd.cagg_tags[taglength-1][2];
 			srv_spat.request.center = obstacles[objid-1];
-			srv_spat.request.dimensions[0] = obsdim[objid-1].x;
-			srv_spat.request.dimensions[1] = obsdim[objid-1].y;
-			for (int i=0; i<relationships.size(); i++)
+			srv_spat.request.dimensions[0].data = obsdim[objid-1].x;
+			srv_spat.request.dimensions[1].data = obsdim[objid-1].y;
+			for (int i=0; i<5; i++)
 			{
 				if(relationships[i].equalsIgnoreCase(cmd.cagg_tags[taglength-2][2]))
 				{
-					srv_spat.request.relationship = i;
+					srv_spat.request.relationship.data = i;
 					break;
 				}
 			}
 			if(taglength>2)
 			{
-				for (int i=0; i<qualifiers.size(); i++)
+				for (int i=0; i<3; i++)
 				{
 					if(qualifiers[i].equalsIgnoreCase(cmd.cagg_tags[taglength-3][2]))
 					{
-						srv_spat.request.qualifier = i;
+						srv_spat.request.qualifier.data = i;
 						break;
 					}
 				}
