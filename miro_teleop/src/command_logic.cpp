@@ -34,6 +34,8 @@ geometry_msgs::Pose2D robot, user; // Robot and user positions from mocap
 vector<geometry_msgs::Pose2D> obstacles; //Vector of obstacles
 vector<geometry_msgs::Point> obsdim; //Vector of object dimensions (populated later manually)
 geometry_msgs::Pose gesture; // Gesture information from mocap
+string[] relationships = {"right", "behind", "left", "front", "near"}; //Maintain order
+string[] qualifiers = {"weak", "normal", "strong"};
 
 /**
  * Subscriber callback function.
@@ -109,36 +111,75 @@ void plot(const char* name, float matrix[][RES])
 }
 */
 
-/**
- * Command Logic Node main function.
- * Calls services and set robot motion according to commands received.
- *
- * In its initialization, the node calls the Spatial Reasoner service once to
- * obtain all landscapes from the current workspace setting. Then, the execution
- * flow will depend on the command received from the Interpreter:
- *
- * If cmd = 1 (look), the following services are called in this order:
- * Gesture Processing - returns the target position
- * Pertinence Mapping - returns the mapped fuzzy landscape
- * Monte Carlo Simulation - computes the goal position
- * RRT* Path Planner - Generates optimal trajectory from robot position to goal
- * The trajectory obtained is published to the Robot Controller.
- *
- * If cmd = 2 (go), the flag enable is set to 'true' and also sent to the
- * Controller. In this moment, MIRO should move.
- *
- * If cmd = 3 (stop), the same flag is set to 'false' and sent to Controller.
- * The robot should stop.
- *
- * If any other command tag is received, it is ignored.
- */
+int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
+	miro_teleop::SpatialReasoner srv_spat, miro_teleop::PertinenceMapping srv_pert,
+	int state, std_msgs::Float64[] landscape)
+{
+	std_msgs::Float64[] kernel;
+	//Call spatial_reasoner
+	if (cli_spat.call(srv_spat))
+	{
+		float spmat0[RES][RES]; //For opencv plot
+		for (int i=0; i<RES*RES; i++)
+		{
+			kernel[i].data = srv_spat.response.matrices[i].data;
+			spmat0[i/RES][i%RES] = kernel[i].data*255;
+		}
+		// Display landscapes (requires opencv package)
+		ROS_INFO("Gesture based landscape generated succesfully");
+	}
+	else
+	{
+		ROS_ERROR("Failed to call spatial reasoner");
+		return 1;
+	}
+
+	//Setting inputs for pertinence map service
+	for (int i=0; i<RES*RES; i++)
+	{
+		srv_pert.request.M1.push_back(landscape[i]);
+		srv_pert.request.M2.push_back(kernel[i]);
+	}
+
+	//Calling pertinence_mapper
+	if (cli_pert.call(srv_pert))
+	{
+		float pertmatrix[RES][RES]; //For opencv
+		for (int i=0; i<RES*RES; i++)
+		{
+			landscape[i].data = srv_pert.response.landscape[i].data;
+			pertmatrix[i/RES][i%RES] = srv_pert.response.landscape[i].data*255;
+		}
+		// Verify whether the output is valid
+		if(!std::isfinite(landscape[0].data))
+		{
+			state = 0;
+			ROS_INFO("Invalid pertinence mapping");
+		}
+		else
+		{
+			state = 2;
+			ROS_INFO("Gesture based landscape mapped");
+			// Plot using opencv (TODO Uncomment)
+			//plot("Mapped landscape", pertmatrix);
+		}
+	}
+	else
+	{
+		ROS_ERROR("Failed to call Pertinence Mapping");
+		return 1;
+	}
+	srv_pert.request.M1.clear();
+	srv_pert.request.M2.clear();
+	return state;
+}
+
 int main(int argc, char **argv)
 {
 	/* Definitions */
 	geometry_msgs::Pose2D gesture_target, goal; // Gesture target and goal positions
 	miro_teleop::Path rrtPath; // Trajectory to be published
-	std_msgs::Float64 kernel[RES*RES]; // From spatial reasoner
-	std_msgs::Float64 landscape[RES*RES]; // From pertinence mapping
+	std_msgs::Float64 landscape[RES*RES]; // Final landscape sent to MonteCarlo, updated after each command
 	std_msgs::Bool enable; // Controller enable flag
 	rrtstar_msgs::Region workspace, goal_reg; // For RRT* algorithm
 	geometry_msgs::Vector3 init; // Initial position for the path planner
@@ -168,7 +209,7 @@ int main(int argc, char **argv)
 	n.advertise<std_msgs::Bool>("enable", 1);
 
 	// Subscriber from command interpreter
-	ros::Subscriber sub_cmd =	n.subscribe("command", 3, getCmd);
+	ros::Subscriber sub_cmd =	n.subscribe("command", 4, getCmd);
 	// Subscribers from motion capture (mocap)
 	ros::Subscriber sub_robot =	n.subscribe("Robot/ground_pose", 1, getRobotPose);
 	ros::Subscriber sub_gesture =	n.subscribe("Gesture/pose", 1, getGesture);
@@ -178,7 +219,6 @@ int main(int argc, char **argv)
 	{
 		sub_obs.push_back(n.subscribe("Obstacle"+i+"/ground_pose", 1, getObstaclePose));
 	}
-
 
 	/* Initialize service clients and handlers */
 	ros::ServiceClient cli_spat =	n.serviceClient<miro_teleop::SpatialReasoner>("spatial_reasoner");
@@ -225,325 +265,185 @@ int main(int argc, char **argv)
 	ROS_INFO("Command logic (master) node active");
 	ROS_INFO("Initialization: calling spatial reasoner");
 
-	//TODO Initialize spatial_reasoner by blacking out all Obstacles in the landscape
-	//Send this blacked out matrix as initial matrix for subsequent kernel formations
-	// Or do this after getting pertinence map
+	//TODO: Here initialize landscape[] by blacking out all obstacles in a white background
 
 	/* Main loop */
 	while(ros::ok())
 	{
-
-		// TODO Parse command. The idea is that the cmd is something:
-		// go left table strictly right chair ...
 		// We receive a list of relations at a time from Interpreter node
 		// Parse each relation to extract "object#", "relationship", "qualifier"
 		// Call spatial_reasoner once for each relation to generate one kernel each
 		// Call pertinence mapping once for each command to get final landscape
 
 		int taglength=cmd.cagg_tags.size();
-		if(taglength==1)
+		if("reset".equalsIgnoreCase(cmd.cagg_tags[0][0]))
 		{
-			if("reset".equalsIgnoreCase(cmd.cagg_tags[0][0]))
-			{
-				//TODO RESET
-			}
-			else if("stop".equalsIgnoreCase(cmd.cagg_tags[0][0]))
-			{
-				//TODO STOP
-			}
+			//TODO RESET
 		}
-		else
+		else if("stop".equalsIgnoreCase(cmd.cagg_tags[0][0]))
 		{
-			//TODO GO
+			enable.data = false;
+			flag_pub.publish(enable);
+		}
+		else if("go".equalsIgnoreCase(cmd.cagg_tags[0][0]) && taglength>1) //Failsafe condition check
+		{
+			//TODO: Stop Miro's current motion while new path is being computed
+			
+			// Call gesture processing service
+			state=0;
+			ROS_INFO("Calling Gesture Processing service");
+			srv_gest.request.gesture = gesture;
+			if (cli_gest.call(srv_gest))
+			{
+				target = srv_gest.response.target;
+				// Verify if target is valid number
+				if(std::isfinite(target.x) &&	std::isfinite(target.y))
+				{
+					ROS_INFO("Target obtained: (%f,%f)", target.x, target.y);
+					state = 1;
+				}
+				else
+					ROS_INFO("Invalid target: please try again");
+				// Verify bound conditions
+				if(target.x < -HSIZE/2 || target.x > HSIZE/2 || target.y < -VSIZE/2 || target.y > VSIZE/2)
+				{
+					ROS_INFO("Target out of the bounds");
+					state = 0;
+				}
+			}
+			else
+			{
+				ROS_ERROR("Failed to call Gesture Processing");
+				return 1;
+			}
+			//TODO detect when to use/ignore the gesture data and set useGesture accordingly
+
+			bool useGesture = true;
+			if(useGesture)
+			{
+				//Set inputs for spatial_reasoner
+				srv_spat.request.center = target;
+				srv_spat.request.dimensions[0] = 1;
+				srv_spat.request.dimensions[1] = 1;
+				srv_spat.request.relationship = 4; //relation "near"
+
+				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
+			}
+
+			//We send data to spatial_reasoner even when gesture_processing fails
+			//Sending info to spatial_reasoner as per Interpreter tags
 			// Assuming tags in the form of
 			// [["go","quantifier","strictly"](Optional),["go","relation","right"],["go","object","1"]
 			int objid = cmd.cagg_tags[taglength-1][2];
 			srv_spat.request.center = obstacles[objid-1];
 			srv_spat.request.dimensions[0] = obsdim[objid-1].x;
 			srv_spat.request.dimensions[1] = obsdim[objid-1].y;
-			srv_spat.request.relationship = cmd.cagg_tags[taglength-2][2];
+			for (int i=0; i<relationships.size(); i++)
+			{
+				if(relationships[i].equalsIgnoreCase(cmd.cagg_tags[taglength-2][2]))
+				{
+					srv_spat.request.relationship = i;
+					break;
+				}
+			}
 			if(taglength>2)
-				srv_spat.request.qualifier = cmd.cagg_tags[taglength-3][2];
-
-			// Call gesture processing service
-			state=0;
-			ROS_INFO("Calling Gesture Processing service");
-			ROS_INFO("Gesture x: %f", gesture.position.x);
-			srv_gest.request.gesture = gesture;
-
-			if (cli_gest.call(srv_gest))
 			{
-				target = srv_gest.response.target;
-				// Verify if target is valid number
-				if(std::isfinite(target.x) &&
-					std::isfinite(target.y))
+				for (int i=0; i<qualifiers.size(); i++)
 				{
-					ROS_INFO("Target obtained: (%f,%f)",
-					target.x, target.y);
-					state = 1;
-				}
-				else
-				ROS_INFO("Invalid target: please try again");
-				// Verify bound conditions
-				if(target.x < -HSIZE/2 || target.x > HSIZE/2 ||
-				   target.y < -VSIZE/2 || target.y > VSIZE/2)
-				{
-					ROS_INFO("Target out of the bounds");
-					state = 0;
+					if(qualifiers[i].equalsIgnoreCase(cmd.cagg_tags[taglength-3][2]))
+					{
+						srv_spat.request.qualifier = i;
+						break;
+					}
 				}
 			}
-			else
-			{
-				ROS_ERROR("Failed to call Gesture Processing");
-				return 1;
-			}
-		}
 
-		if(cmd.data==1)
-		{
-			state = 0;
+			state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
 
-			// First, call gesture processing service
-			ROS_INFO("Calling Gesture Processing service");
-			ROS_INFO("Gesture x: %f", gesture.position.x);
-			srv_gest.request.gesture = gesture;
-
-			if (cli_gest.call(srv_gest))
-			{
-				target = srv_gest.response.target;
-				// Verify if target is valid number
-				if(std::isfinite(target.x) &&
-					std::isfinite(target.y))
-				{
-					ROS_INFO("Target obtained: (%f,%f)",
-					target.x, target.y);
-					state = 1;
-				}
-				else
-				ROS_INFO("Invalid target: please try again");
-				// Verify bound conditions
-				if(target.x < -HSIZE/2 || target.x > HSIZE/2 ||
-				   target.y < -VSIZE/2 || target.y > VSIZE/2)
-				{
-					ROS_INFO("Target out of the bounds");
-					state = 0;
-				}
-			}
-			else
-			{
-				ROS_ERROR("Failed to call Gesture Processing");
-				return 1;
-			}
-
-			// TODO If gesture is valid, call spatial reasoner
-			// and consider pointing as an "object" of default size
-			// (say, 1x1). This will return the 'within' relation
-			// which we input in the pert mapping
-
-			// Set the matrices, by calling spatial reasoner
-			// TODO Call the spatial reasoner N times, being N: number of objects
-			srv_spat.request.center = obs;
-			srv_spat.request.dimensions.push_back(obsdim[0]);
-			srv_spat.request.dimensions.push_back(obsdim[1]);
-
-			if (cli_spat.call(srv_spat))
-			{
-				// Matrices to be plotted by opencv
-				float   spmat0[RES][RES], spmat1[RES][RES],
-					spmat2[RES][RES], spmat3[RES][RES],
-					spmat4[RES][RES];
-
-				for (int i=0;i<NZ*RES*RES;i++){
-					matrices[i].data = srv_spat.response.matrices[i].data;
-					int depth=i/(RES*RES);
-					int l_ind = i%(RES*RES);
-					if(depth==0)
-					spmat0[l_ind/RES][l_ind%RES]=matrices[i].data*255;
-					if(depth==1)
-					spmat1[l_ind/RES][l_ind%RES]=matrices[i].data*255;
-					if(depth==2)
-					spmat2[l_ind/RES][l_ind%RES]=matrices[i].data*255;
-					if(depth==3)
-					spmat3[l_ind/RES][l_ind%RES]=matrices[i].data*255;
-					if(depth==4)
-					spmat4[l_ind/RES][l_ind%RES]=matrices[i].data*255;
-				}
-
-				// Display landscapes (requires opencv package)
-				/* TODO Uncomment later - opencv issues
-				plot("North", spmat0);
-				plot("West" , spmat1);
-				plot("South", spmat2);
-				plot("East",  spmat3);
-				plot("Distance", spmat4);
-				*/
-
-				ROS_INFO("Environment landscapes generated succesfully");
-			}
-			else
-			{
-				ROS_ERROR("Failed to call spatial reasoner");
-				return 1;
-			}
-
-			// TODO Have some var. defined N which is the current
-			// number of relations (including pointing!)
-
-			// Then, call pertinence mapping service
-			if(state==1)
-			{
-			ROS_INFO("Calling Pertinence Mapping service");
-			for (int i=0;i<RES*RES*N;i++)
-			srv_pert.request.matrices.push_back(matrices[i]);
-
-			if (cli_pert.call(srv_pert))
-			{
-				float pertmatrix[RES][RES];
-				for (int i=0;i<RES*RES;i++)
-				{
-					landscape[i].data =
-					srv_pert.response.landscape[i].data;
-					//For OpenCV plot
-					pertmatrix[i/RES][i%RES] =
-					srv_pert.response.landscape[i].data*255;
-				}
-
-				// Verify whether the output is valid
-				if(!std::isfinite(landscape[0].data))
-				{
-					state = 0;
-					ROS_INFO("Invalid pertinence mapping");
-				}
-				else
-				{
-					state = 2;
-					ROS_INFO("Landscapes mapped");
-					// Plot using opencv (TODO Uncomment)
-					//plot("Mapped landscape", pertmatrix);
-				}
-			}
-			else
-			{
-				ROS_ERROR("Failed to call Pertinence Mapping");
-				return 1;
-			}
-			srv_pert.request.matrices.clear();
-			}
-
-			// After, call monte carlo service
 			if(state==2)
 			{
-			ROS_INFO("Calling Monte Carlo Simulation service");
-			srv_mont.request.P = target;
-			for (int i=0;i<RES*RES;i++)
-			srv_mont.request.landscape.push_back(landscape[i]);
+				//Set input for Monte MonteCarlo
+				for (int i=0; i<RES*RES; i++)
+					srv_mont.request.landscape.push_back(landscape[i]);
 
-			if (cli_mont.call(srv_mont))
-			{
-				goal = srv_mont.response.goal;
-				// Verify if goal returned is valid
-				if(goal.x<-HSIZE/2 || goal.x>HSIZE/2
-				|| goal.y<-VSIZE/2 || goal.y>VSIZE/2)
+				//Call MonteCarlo
+				if (cli_mont.call(srv_mont))
 				{
-					ROS_INFO("Invalid goal position");
-					state = 0;
+					goal = srv_mont.response.goal;
+					// Verify if goal returned is valid
+					if(goal.x<-HSIZE/2 || goal.x>HSIZE/2 || goal.y<-VSIZE/2 || goal.y>VSIZE/2)
+					{
+						ROS_INFO("Invalid goal position");
+						state = 0;
+					}
+					else
+					{
+						ROS_INFO("Goal obtained: (%f,%f)", goal.x, goal.y);
+						state = 3;
+					}
 				}
 				else
 				{
-					ROS_INFO("Goal obtained: (%f,%f)",
-					goal.x, goal.y);
-					state = 3;
+					ROS_ERROR("Failed to call Monte Carlo service");
+					return 1;
 				}
-			}
-			else
-			{
-				ROS_ERROR("Failed to call Monte Carlo service");
-				return 1;
-			}
-			srv_mont.request.landscape.clear();
+				srv_mont.request.landscape.clear();
 			}
 
 			// Finally, call RRT* server and publish path
 			if(state==3)
 			{
-			ROS_INFO("Calling RRT* Path Planner service");
+				ROS_INFO("Calling RRT* Path Planner service");
 
-			// Initial position is robot current one
-			init.x = robot.x;
-			init.y = robot.y;
-			init.z = 0;
+				// Initial position is robot current one
+				init.x = robot.x;
+				init.y = robot.y;
+				init.z = 0;
 
-			// Define goal region
-			goal_reg.center_x = goal.x; //TEST
-			goal_reg.center_y = goal.y; //TEST
-			goal_reg.center_z = 0;
-			goal_reg.size_x = 20;
-			goal_reg.size_y = 20;
-			goal_reg.size_z = 0;
+				// Define goal region
+				goal_reg.center_x = goal.x;
+				goal_reg.center_y = goal.y;
+				goal_reg.center_z = 0;
+				goal_reg.size_x = 20;
+				goal_reg.size_y = 20;
+				goal_reg.size_z = 0;
 
-			// Note: workscape and object regions already defined
-			srv_rrts.request.Goal = goal_reg;
-			srv_rrts.request.Init = init;
+				// Note: workscape and object regions already defined
+				srv_rrts.request.Goal = goal_reg;
+				srv_rrts.request.Init = init;
 
-			if(cli_rrts.call(srv_rrts))
-			{
-				ROS_INFO("Path found: Publishing...");
-				pathsize = srv_rrts.response.path.size();
-				// Obtain trajectory point-by-point
-				geometry_msgs::Vector3 point;
-				rrtPath.path.clear();
-				for(int i=0; i<pathsize; i++)
+				if(cli_rrts.call(srv_rrts))
 				{
-					point.x = srv_rrts.response.path[i].x;
-					point.y = srv_rrts.response.path[i].y;
-					point.z = srv_rrts.response.path[i].z;
-					// Only x and y coordinates matter
-					rrtPath.path.push_back(point);
-					ROS_INFO("Point %d: (%f,%f)",
-					i,point.x, point.y);
+					ROS_INFO("Path found: Publishing...");
+					pathsize = srv_rrts.response.path.size();
+					// Obtain trajectory point-by-point
+					geometry_msgs::Vector3 point;
+					rrtPath.path.clear();
+					for(int i=0; i<pathsize; i++)
+					{
+						point.x = srv_rrts.response.path[i].x;
+						point.y = srv_rrts.response.path[i].y;
+						point.z = srv_rrts.response.path[i].z;
+						// Only x and y coordinates matter
+						rrtPath.path.push_back(point);
+						ROS_INFO("Point %d: (%f,%f)", i, point.x, point.y);
+					}
+					path_pub.publish(rrtPath);
+					state = 4;
 				}
-				path_pub.publish(rrtPath);
-				state = 4;
-			}
-			else
-			{
-				ROS_ERROR("Failed to call RRT* Path Planner");
-				return 1;
-			}
-			}
-
-			// Reset command
-			cmd.data = 0;
-		}
-
-		/* Command: go */
-		if(cmd.data==2)
-		{
-			// Enable robot control
-			enable.data = true;
-			flag_pub.publish(enable);
-
-			// Reset command
-			cmd.data = 0;
-		}
-
-		/* Command: stop */
-		if(cmd.data==3)
-		{
-			// Disable robot control
-			enable.data = false;
-			flag_pub.publish(enable);
-
-			// Reset command
-			cmd.data = 0;
-		}
-
-		/* Spin and wait for next period */
-		ros::spinOnce();
-		loop_rate.sleep();
-
-	}
-
-	return 0;
-
-}
+				else
+				{
+					ROS_ERROR("Failed to call RRT* Path Planner");
+					return 1;
+				}
+				// Enable robot control
+				enable.data = true;
+				flag_pub.publish(enable);
+			 }
+		 }
+		 /* Spin and wait for next period */
+		 ros::spinOnce();
+		 loop_rate.sleep();
+	 }
+	 return 0;
+ }
