@@ -147,8 +147,8 @@ int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
 		float pertmatrix[RES][RES]; //For opencv
 		for (int i=0; i<RES*RES; i++)
 		{
-			landscape[i].data = srv_pert.response.landscape[i].data;
-			pertmatrix[i/RES][i%RES] = srv_pert.response.landscape[i].data*255;
+			landscape[i].data = srv_pert.response.MOut[i].data;
+			pertmatrix[i/RES][i%RES] = landscape[i].data*255;
 		}
 		// Verify whether the output is valid
 		if(!std::isfinite(landscape[0].data))
@@ -278,7 +278,8 @@ int main(int argc, char **argv)
 		int taglength=cmd.cagg_tags.size();
 		if("reset".equalsIgnoreCase(cmd.cagg_tags[0][0]))
 		{
-			//TODO RESET
+			enable.data = false;
+			flag_pub.publish(enable);
 		}
 		else if("stop".equalsIgnoreCase(cmd.cagg_tags[0][0]))
 		{
@@ -288,7 +289,8 @@ int main(int argc, char **argv)
 		else if("go".equalsIgnoreCase(cmd.cagg_tags[0][0]) && taglength>1) //Failsafe condition check
 		{
 			//TODO: Stop Miro's current motion while new path is being computed
-			
+			// Or some feedback to show that command is being processed
+
 			// Call gesture processing service
 			state=0;
 			ROS_INFO("Calling Gesture Processing service");

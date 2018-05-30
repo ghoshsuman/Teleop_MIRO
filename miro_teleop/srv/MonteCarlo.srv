@@ -1,4 +1,3 @@
 std_msgs/Float64[] landscape
-geometry_msgs/Pose2D P
 ---
 geometry_msgs/Pose2D goal
