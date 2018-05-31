@@ -15,6 +15,7 @@
 #include "miro_teleop/Path.h"
 #include "miro_msgs/platform_control.h"
 #include "ros_cagg_msgs/cagg_tags.h"
+#include "ros_cagg_msgs/cagg_tag.h"
 #include "rrtstar_msgs/rrtStarSRV.h"
 #include "rrtstar_msgs/Region.h"
 #include <opencv2/core/core.hpp>
@@ -116,7 +117,7 @@ void plot(const char* name, float matrix[][RES])
 */
 
 int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
-miro_teleop::SpatialReasoner srv_spat, miro_teleop::PertinenceMapping srv_pert, 
+miro_teleop::SpatialReasoner srv_spat, miro_teleop::PertinenceMapping srv_pert,
 int state, std_msgs::Float64* landscape)
 {
 	std_msgs::Float64* kernel;
@@ -179,7 +180,7 @@ int state, std_msgs::Float64* landscape)
 }
 
 // Function to verify if some point (x,y) is inside any object
-bool isIn(int i, int j, std::vector<geometry_msgs::Pose2D> obstacles, 
+bool isIn(int i, int j, std::vector<geometry_msgs::Pose2D> obstacles,
 						std::vector<geometry_msgs::Point> obsdim)
 {
 	double cx, cy, dx, dy, x, y;
@@ -240,9 +241,9 @@ int main(int argc, char **argv)
 	std::vector<ros::Subscriber> sub_obs;
 	for (int i=0; i<numObs; i++)
 	{
-		std::string ichar = 
+		std::string ichar =
 			static_cast<std::ostringstream*>(&(std::ostringstream()<<i))->str();
-		std::string topic_name = 
+		std::string topic_name =
 			"Obstacle" + ichar + "/ground_pose";
 		sub_obs.push_back(n.subscribe(topic_name, 1, getObstaclePose));
 	}
@@ -297,7 +298,7 @@ int main(int argc, char **argv)
 		for (int j=0; j<RES; j++)
 			// If point is not inside any obstacle initial value is 1
 			if(!isIn(i,j,obstacles,obsdim)) landscape[i].data = 1;
-	
+
 	/* Main loop */
 	while(ros::ok())
 	{
@@ -307,17 +308,19 @@ int main(int argc, char **argv)
 		// Call pertinence mapping once for each command to get final landscape
 
 		int taglength=cmd.cagg_tags.size();
-		if("reset".equalsIgnoreCase(cmd.cagg_tags[0][0]))
+		std::vector<std::string> command_tag=cmd.cagg_tags[0].cagg_tag;
+		std::string command = command_tag[0];
+		if(command.compare("RESET")==0)
 		{
 			enable.data = false;
 			flag_pub.publish(enable);
 		}
-		else if("stop".equalsIgnoreCase(cmd.cagg_tags[0][0]))
+		else if(command.compare("STOP")==0)
 		{
 			enable.data = false;
 			flag_pub.publish(enable);
 		}
-		else if("go".equalsIgnoreCase(cmd.cagg_tags[0][0]) && taglength>1) //Failsafe condition check
+		else if(command.compare("GO")==0 && taglength>1) //Failsafe condition check
 		{
 			//TODO: Stop Miro's current motion while new path is being computed
 			// Or some feedback to show that command is being processed
@@ -367,13 +370,13 @@ int main(int argc, char **argv)
 			//Sending info to spatial_reasoner as per Interpreter tags
 			// Assuming tags in the form of
 			// [["go","quantifier","strictly"](Optional),["go","relation","right"],["go","object","1"]
-			int objid = cmd.cagg_tags[taglength-1][2];
+			int objid = atoi(cmd.cagg_tags[taglength-1].cagg_tag[2].c_str());
 			srv_spat.request.center = obstacles[objid-1];
 			srv_spat.request.dimensions[0].data = obsdim[objid-1].x;
 			srv_spat.request.dimensions[1].data = obsdim[objid-1].y;
 			for (int i=0; i<5; i++)
 			{
-				if(relationships[i].equalsIgnoreCase(cmd.cagg_tags[taglength-2][2]))
+				if(relationships[i].compare(cmd.cagg_tags[taglength-2].cagg_tag[2]))
 				{
 					srv_spat.request.relationship.data = i;
 					break;
@@ -383,7 +386,7 @@ int main(int argc, char **argv)
 			{
 				for (int i=0; i<3; i++)
 				{
-					if(qualifiers[i].equalsIgnoreCase(cmd.cagg_tags[taglength-3][2]))
+					if(qualifiers[i].compare(cmd.cagg_tags[taglength-3].cagg_tag[2]))
 					{
 						srv_spat.request.qualifier.data = i;
 						break;
