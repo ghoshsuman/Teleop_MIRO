@@ -60,6 +60,17 @@ void getCommanderPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 	gesture.y = 100*pose->y;
 }
 
+void colormap(int color, miro_msgs::platform_control cmd_vel)
+{
+	for (int i = 0; i<18; i++)
+	{
+		if(color>0 && color<4) 
+			cmd_vel.lights_raw[i] = 255*((i+4-color)%3==0);
+		else
+			cmd_vel.lights_raw[i] = 0;
+	}
+}
+
 /**
  * Robot Controller Node main function.
  * Performs robot position and orientation control.
@@ -83,9 +94,9 @@ int main(int argc, char **argv)
 	double dr, dtheta; // Linear and angular displacements
 	double ktheta = 1; // Angular control gain
 	double vr, vtheta; // Desired linear and angular velocities
-	miro_msgs::platform_control cmd_vel; // Message to be published
+	miro_msgs::platform_control cmd_vel; // Message to be published 
+	int color; // Corresponding colors
 	double tol = 20.0;  // Displacement tolerance (in cm)
-	bool turn_blink;
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "robot_controller");
@@ -112,6 +123,8 @@ int main(int argc, char **argv)
 	/* Main loop */
 	while (ros::ok())
 	{
+		/* Get color from parameter server (default is 0 - no color) */
+  		n.param("/color_key", color, 0);
 
 		/* Perform control only with flag enabled */
 		if(enable)
@@ -137,9 +150,6 @@ int main(int argc, char **argv)
 					enable = false;
 					ROS_INFO("Goal position reached");
 					ROS_INFO("Controller disabled");
-					
-					// Then MiRo turn and blink to commander
-					turn_blink = true;
 				}
 			}
 			else
@@ -152,38 +162,22 @@ int main(int argc, char **argv)
 				/* Compose message and publish */
 				cmd_vel.body_vel.linear.x = vr;
 				cmd_vel.body_vel.angular.z = vtheta;
+				colormap(color, cmd_vel);
 				ctl_pub.publish(cmd_vel);
 
-				ROS_INFO("Position reference: (%f, %f)",
-				ref.x,ref.y);
-				ROS_INFO("Robot position: (%f, %f)",
-				robot.x,robot.y);
+				ROS_INFO("Position reference: (%f, %f)",ref.x,ref.y);
+				ROS_INFO("Robot position: (%f, %f)",robot.x,robot.y);
 				ROS_INFO("Displacement: (%f, %f)",dr,dtheta);
-				ROS_INFO("Set speed linear %f, angular %f\n",
-				vr,vtheta);
+				ROS_INFO("Set speed linear %f, angular %f\n",vr,vtheta);
 			}
 		}
 		else
 		{
-			if(turn_blink)
-			{
-			commPos = gesture;
-			dtheta = atan2(commPos.y-robot.y,
-			commPos.x-robot.x)-robot.theta;
-                       	dtheta = atan2(sin(dtheta),cos(dtheta));
-			cmd_vel.body_vel.linear.x = 0;
-                       	cmd_vel.body_vel.linear.z = dtheta;
-                      	cmd_vel.blink_time = 10; // 200ms blink
-			ctl_pub.publish(cmd_vel);
-			if(dtheta<0.1) turn_blink = false;
-			}
-			else
-			{
 			/* Otherwise send a null velocity to robot */
 			cmd_vel.body_vel.linear.x  = 0.0;
 			cmd_vel.body_vel.angular.z = 0.0;
+			colormap(color, cmd_vel);
 			ctl_pub.publish(cmd_vel);
-			}
 		}
 
 		/* Spin and wait for next period */
