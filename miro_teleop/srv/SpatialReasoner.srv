@@ -1,4 +1,5 @@
 geometry_msgs/Pose2D center
+geometry_msgs/Pose2D user
 std_msgs/Float64[] dimensions
 std_msgs/UInt8 relationship
 std_msgs/UInt8 qualifier

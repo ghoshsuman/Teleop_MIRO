@@ -436,6 +436,7 @@ int main(int argc, char **argv)
 				}
 			}
 
+			srv_spat.request.user = user;
 			state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
 
 			if(state==2)

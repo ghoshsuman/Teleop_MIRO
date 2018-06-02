@@ -36,6 +36,8 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	double a = req.dimensions[0].data;
 	double b = req.dimensions[1].data;
 	double dxy = a*a+b*b; // Parameter for the 'near' relation
+	/* User orientation angle */
+	double u_ang = req.user.theta;
 
 	/* Other definitions */
 	double xp, yp, xq, yq, xv, yv;
@@ -45,8 +47,8 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 
 	/* Obtain desired relation tag */
 	int dir = req.relationship.data; 
-	double c_ang = cos(dir*PI/2);
-    double s_ang = sin(dir*PI/2);
+	double c_ang = cos(dir*PI/2-u_ang);
+    double s_ang = sin(dir*PI/2-u_ang);
 
 	/* Set qualifier */
 	double q;
