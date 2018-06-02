@@ -260,7 +260,7 @@ int main(int argc, char **argv)
 	ros::Subscriber sub_cmd =	n.subscribe("CAGG/adapted/semantic_tags", 4, getCmd);
 	// Subscribers from motion capture (mocap)
 	ros::Subscriber sub_robot =	n.subscribe("Robot/ground_pose", 1, getRobotPose);
-	ros::Subscriber sub_gesture =	n.subscribe("Gesture/pose", 1, getGesture);
+	ros::Subscriber sub_gesture =	n.subscribe("stable_pose", 1, getGesture);
 	ros::Subscriber sub_user =	n.subscribe("User/ground_pose", 1, getUserPose);
 	ros::Subscriber sub_obs1 = n.subscribe("Obstacle1/ground_pose", 1, getObstacle1Pose);
 	ros::Subscriber sub_obs2 = n.subscribe("Obstacle2/ground_pose", 1, getObstacle2Pose);
@@ -508,6 +508,7 @@ int main(int argc, char **argv)
 				// Enable robot control
 				enable.data = true;
 				flag_pub.publish(enable);
+				//TODO unset color parameter because processing finished
 			 }
 		 }
 		 /* Spin and wait for next period */
