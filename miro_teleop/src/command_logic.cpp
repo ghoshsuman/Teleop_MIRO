@@ -140,8 +140,7 @@ void getObstacle6Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
  * OpenCV Plot function.
  * Attaches matrix information to an img variable and displays it on screen.
  */
-
-/* Commented due to opencv lib issues - TODO Uncomment later
+ 
 void plot(const char* name, float matrix[][RES])
 {
 	cv::Mat img;
@@ -151,7 +150,6 @@ void plot(const char* name, float matrix[][RES])
 	cv::imshow(name, img);
 	cv::waitKey(0);
 }
-*/
 
 /* Auxiliary function to generate kernels */
 int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
@@ -170,6 +168,7 @@ int state, std_msgs::Float64* landscape)
 		}
 		// Display landscapes (requires opencv package)
 		ROS_INFO("Gesture based landscape generated succesfully");
+		plot("Relation Kernel", spmat0);
 	}
 	else
 	{
@@ -204,7 +203,7 @@ int state, std_msgs::Float64* landscape)
 			state = 2;
 			ROS_INFO("Gesture based landscape mapped");
 			// Plot using opencv (TODO Uncomment)
-			//plot("Mapped landscape", pertmatrix);
+			plot("Mapped landscape", pertmatrix);
 		}
 	}
 	else
@@ -346,15 +345,6 @@ int main(int argc, char **argv)
 		
 		// Obtain command associated and corresponding tag length
 		taglength = cmd.cagg_tags.size();
-		
-		// Update robot lights to instruct user if command was understood
-		if(taglength == 0)
-		{ 
-			n.setParam("/color_key", 1); //Empty tag: command not understood (red)
-			taglength = -1;
-		}
-		if(taglength > 0) 
-			n.setParam("/color_key", 4); //Command being processed (yellow)
 		
 		// Work based on command received when callback is executed
 		// Reset: user not satisfied (aborted), Stop: user satisfied (done)
@@ -529,7 +519,7 @@ int main(int argc, char **argv)
 				flag_pub.publish(enable);
 				// Set color to green - processing finished, ready for new cmd
 				n.setParam("/color_key", 2);
-				taglength = -1;
+				taglength = 0;
 			 }
 		 }
 		 
