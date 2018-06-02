@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(miro_teleop)
-set(OpenCV_DIR /usr/share/OpenCV)
+#set(OpenCV_DIR /usr/share/OpenCV)
 
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
@@ -11,8 +11,11 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   miro_msgs
   message_generation
-  OpenCV
+#  OpenCV
+  cv_bridge
 )
+
+find_package(OpenCV REQUIRED)
 
 add_service_files(
   DIRECTORY
@@ -37,12 +40,19 @@ generate_messages(
   miro_msgs
 )
 
+
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  include
+)
+
 add_executable(interpreter src/interpreter.cpp)
 target_link_libraries(interpreter ${catkin_LIBRARIES})
 add_dependencies(interpreter miro_teleop_gencpp)
 
 add_executable(command_logic src/command_logic.cpp)
-target_link_libraries(command_logic ${catkin_LIBRARIES})
+target_link_libraries(command_logic ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 add_dependencies(command_logic miro_teleop_gencpp rrtstar_msgs_gencpp)
 
 add_executable(gesture_processing_server src/gesture_processing.cpp)
@@ -71,7 +81,8 @@ add_dependencies(tracker_node miro_teleop_gencpp)
 
 catkin_package(CATKIN_DEPENDS message_runtime)
 
-include_directories(
+#include_directories(
 # include
-  ${catkin_INCLUDE_DIRS}
-)
+#  ${catkin_INCLUDE_DIRS}
+#)
+
