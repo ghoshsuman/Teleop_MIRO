@@ -31,7 +31,7 @@
 #define RES 40 // Grid resolution
 #define HSIZE 400
 #define VSIZE 400
-#define numObs 3
+#define numObs 6
 
 /* Global variables */
 ros_cagg_msgs::cagg_tags cmd; // Command tag received from interpreter
@@ -39,8 +39,9 @@ geometry_msgs::Pose2D robot, user; // Robot and user positions from mocap
 std::vector<geometry_msgs::Pose2D> obstacles; //Vector of obstacles
 std::vector<geometry_msgs::Point> obsdim; //Vector of object dimensions (populated later manually)
 geometry_msgs::Pose gesture; // Gesture information from mocap
-std::string relationships[5] = {"right", "behind", "left", "front", "near"}; //Maintain order
-std::string qualifiers[3] = {"weak", "normal", "strong"};
+std::string relationships[5] = {"RIGHT", "BEHIND", "LEFT", "FRONT", "NEAR"}; //Maintain order
+std::string qualifiers[3] = {"SLIGHTLY", "NORMAL", "EXACTLY"}; //Maintain order
+
 
 /**
  * Subscriber callback function.
@@ -86,17 +87,42 @@ void getGesture(const geometry_msgs::PoseStamped::ConstPtr& pose)
 	gesture.position.z = 100*pose->pose.position.z;
 }
 
-/**
- * Subscriber callback function.
- * Obtains obstacle pose from Motion Capture node.
- */
-void getObstaclePose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+
+void addToObsList(const geometry_msgs::Pose2D::ConstPtr& groundpose, int i)
 {
 	geometry_msgs::Pose2D obs;
 	obs.x = 100*groundpose->x;
 	obs.y = 100*groundpose->y;
 	obs.theta = groundpose->theta;
-	obstacles.push_back(obs);
+	obstacles[i]=obs;
+}
+/**
+ * Subscriber callback functions:
+ * Obtains obstacle pose from Motion Capture node.
+ */
+void getObstacle1Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 1);
+}
+void getObstacle2Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 2);
+}
+void getObstacle3Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 3);
+}
+void getObstacle4Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 4);
+}
+void getObstacle5Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 5);
+}
+void getObstacle6Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 6);
 }
 
 /**
@@ -142,8 +168,8 @@ int state, std_msgs::Float64* landscape)
 	//Setting inputs for pertinence map service
 	for (int i=0; i<RES*RES; i++)
 	{
-		srv_pert.request.M1.push_back(landscape[i]);
-		srv_pert.request.M2.push_back(kernel[i]);
+		srv_pert.request.M1[i] = landscape[i];
+		srv_pert.request.M2[i] = kernel[i];
 	}
 
 	//Calling pertinence_mapper
@@ -174,8 +200,6 @@ int state, std_msgs::Float64* landscape)
 		ROS_ERROR("Failed to call Pertinence Mapping");
 		return 1;
 	}
-	srv_pert.request.M1.clear();
-	srv_pert.request.M2.clear();
 	return state;
 }
 
@@ -184,8 +208,8 @@ bool isIn(int i, int j, std::vector<geometry_msgs::Pose2D> obstacles,
 						std::vector<geometry_msgs::Point> obsdim)
 {
 	double cx, cy, dx, dy, x, y;
-	x = HSIZE/double(2*RES)+HSIZE*(x/double(RES))-HSIZE/2;
-	y = VSIZE/double(2*RES)+VSIZE*(y/double(RES))-VSIZE/2;
+	x = HSIZE/double(2*RES)+HSIZE*(j/double(RES))-HSIZE/2;
+	y = VSIZE/double(2*RES)+VSIZE*(i/double(RES))-VSIZE/2;
 	for (int k = 0; k<obstacles.size(); k++)
 	{
 		cx = obstacles[k].x;
@@ -233,20 +257,17 @@ int main(int argc, char **argv)
 	n.advertise<std_msgs::Bool>("enable", 1);
 
 	// Subscriber from command interpreter
-	ros::Subscriber sub_cmd =	n.subscribe("command", 4, getCmd);
+	ros::Subscriber sub_cmd =	n.subscribe("CAGG/adapted/semantic_tags", 4, getCmd);
 	// Subscribers from motion capture (mocap)
 	ros::Subscriber sub_robot =	n.subscribe("Robot/ground_pose", 1, getRobotPose);
 	ros::Subscriber sub_gesture =	n.subscribe("Gesture/pose", 1, getGesture);
 	ros::Subscriber sub_user =	n.subscribe("User/ground_pose", 1, getUserPose);
-	std::vector<ros::Subscriber> sub_obs;
-	for (int i=0; i<numObs; i++)
-	{
-		std::string ichar =
-			static_cast<std::ostringstream*>(&(std::ostringstream()<<i))->str();
-		std::string topic_name =
-			"Obstacle" + ichar + "/ground_pose";
-		sub_obs.push_back(n.subscribe(topic_name, 1, getObstaclePose));
-	}
+	ros::Subscriber sub_obs1 = n.subscribe("Obstacle1/ground_pose", 1, getObstacle1Pose);
+	ros::Subscriber sub_obs2 = n.subscribe("Obstacle2/ground_pose", 1, getObstacle2Pose);
+	ros::Subscriber sub_obs3 = n.subscribe("Obstacle3/ground_pose", 1, getObstacle3Pose);
+	ros::Subscriber sub_obs4 = n.subscribe("Obstacle4/ground_pose", 1, getObstacle4Pose);
+	ros::Subscriber sub_obs5 = n.subscribe("Obstacle5/ground_pose", 1, getObstacle5Pose);
+	ros::Subscriber sub_obs6 = n.subscribe("Obstacle6/ground_pose", 1, getObstacle6Pose);
 
 	/* Initialize service clients and handlers */
 	ros::ServiceClient cli_spat = n.serviceClient<miro_teleop::SpatialReasoner>("spatial_reasoner");
@@ -266,6 +287,7 @@ int main(int argc, char **argv)
 
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
+	ros::spinOnce(); //So that obstacle list is populated
 
 	/* Characterize workspace region (predefined) */
 	workspace.center_x = 0;
@@ -297,7 +319,8 @@ int main(int argc, char **argv)
 	for (int i=0; i<RES; i++)
 		for (int j=0; j<RES; j++)
 			// If point is not inside any obstacle initial value is 1
-			if(!isIn(i,j,obstacles,obsdim)) landscape[i].data = 1;
+			// i = row (y); j = column (x)
+			if(!isIn(i,j,obstacles,obsdim)) landscape[i*RES+j].data = 1;
 
 	/* Main loop */
 	while(ros::ok())
@@ -308,6 +331,16 @@ int main(int argc, char **argv)
 		// Call pertinence mapping once for each command to get final landscape
 
 		int taglength=cmd.cagg_tags.size();
+		if(taglength == 0)
+		{
+			//Empty tag: command not understood
+			//TODO set color parameter
+		}
+		else
+		{
+			//Command being processed
+			//TODO set color parameter
+		}
 		std::vector<std::string> command_tag=cmd.cagg_tags[0].cagg_tag;
 		std::string command = command_tag[0];
 		if(command.compare("RESET")==0)
