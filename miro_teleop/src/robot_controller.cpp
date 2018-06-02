@@ -64,12 +64,17 @@ void getCommanderPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 void colormap(int color, miro_msgs::platform_control cmd_vel)
 {
 	// Convention: 0 = none, 1 = red, 2 = green, 3 = blue, 4 = yellow
+	// 5 - purple. 6 - white
 	for (int i = 0; i<18; i++)
 	{
 		if(color>0 && color<4) 
 			cmd_vel.lights_raw[i] = 255*((i+4-color)%3==0);
 		else if(color==4)
 			cmd_vel.lights_raw[i] = 255-255*((i-2)%3==0);
+		else if(color==5)
+			cmd_vel.lights_raw[i] = 255-255*((i-1)%3==0);
+		else if(color==6)
+			cmd_vel.lights_raw[i] = 255;
 		else
 			cmd_vel.lights_raw[i] = 0;
 	}

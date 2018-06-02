@@ -46,7 +46,9 @@ std::string qualifiers[3] = {"SLIGHTLY", "NORMAL", "EXACTLY"};
 int taglength = -1; // Size of tags received from CAGG
 bool useGesture = false;
 double time_threshold = 3; // Max allowed time between gesture and speech
-ros::Time cmd_time, gesture_time; // Time stamps of the command and stable gesture
+ros::Time lock_time, cmd_time, gesture_time; // Time stamps of the command and stable gesture
+bool cmd_received = false; // Auxiliary flag to command
+bool lock_param = false; // Auxiliary flag to prevent parameter change
 
 /**
  * Subscriber callback function.
@@ -61,6 +63,7 @@ void getCmd(const ros_cagg_msgs::cagg_tags::ConstPtr& msg)
 	cmd_time = cmd.header.stamp;
 	// Detect when to use/ignore the gesture data and set useGesture accordingly
 	useGesture = (abs((gesture_time-cmd_time).toSec())<time_threshold);
+	cmd_received = true;
 }
 
 /**
@@ -202,7 +205,7 @@ int state, std_msgs::Float64* landscape)
 		{
 			state = 2;
 			ROS_INFO("Gesture based landscape mapped");
-			// Plot using opencv (TODO Uncomment)
+			// Plot using opencv
 			plot("Mapped landscape", pertmatrix);
 		}
 	}
@@ -332,8 +335,17 @@ int main(int argc, char **argv)
 
 	ROS_INFO("Command logic (master) node active");
 
-	// Convention: 0 = none, 1 = red, 2 = green, 3 = blue, 4 = yellow
-	n.setParam("/color_key", 2);
+	/*  Color convention: 0 = none, 1 = red, 2 = green, 3 = blue, 4 = yellow
+	 *  Initially the robot will be able to listen to commands (green).
+	 *  The CAGG node will trigger the 'processing' (yellow) light.
+	 *  If it is not understood, the lights will become (red) for 2 secs.
+	 *  Otherwise it'll be (blue) until robot starts moving.
+	 *  In either case it returns to (green), accepting new commands.
+	 *  When 'reset' is triggered, it turns (red) and blinks.
+	 *  When 'stop' is triggered, it turns (blue) and blinks.
+	 *  Inconsistent commands are treated as 'reset'.
+	 */
+	n.setParam("/color_key", 2); // Set initially to green (2)
 
 	/* Main loop */
 	while(ros::ok())
@@ -343,8 +355,26 @@ int main(int argc, char **argv)
 		// Call spatial_reasoner once for each relation to generate one kernel each
 		// Call pertinence mapping once for each command to get final landscape
 		
+		// Timing control of the lights
+		if(abs((lock_time-ros::Time(0)).toSec())>3) lock_param = false;
+		
 		// Obtain command associated and corresponding tag length
-		taglength = cmd.cagg_tags.size();
+		if(cmd_received)
+		{
+			taglength = cmd.cagg_tags.size();
+			if(taglength == 0) 	// Command not understood - set color red (1)
+			{
+				if (!lock_param) n.setParam("/color_key", 1);
+				// Lock for 3 sec
+				lock_param = true;
+				lock_time = ros::Time(0);
+			}
+			else // Command understood - set color blue (3)
+			{
+				if (!lock_param) n.setParam("/color_key", 3);
+			}
+			cmd_received = false;
+		}
 		
 		// Work based on command received when callback is executed
 		// Reset: user not satisfied (aborted), Stop: user satisfied (done)
@@ -353,17 +383,23 @@ int main(int argc, char **argv)
 			enable.data = false;
 			flag_pub.publish(enable);
 			initKernel(landscape); // Reinitialize kernel
+			n.setParam("/color_key", 5); // Set lights to purple (5)
+			// Lock for 3 sec
+			lock_param = true;
+			lock_time = ros::Time(0);
 		}
-		else if(command.compare("STOP")==0) // Stop robot, clear kernel
+		else if(command.compare("STOP") == 0) // Stop robot, clear kernel
 		{
 			enable.data = false;
 			flag_pub.publish(enable);
 			initKernel(landscape); // Reinitialize kernel
+			n.setParam("/color_key", 6); // Set lights to white (6)
+			// Lock for 3 sec
+			lock_param = true;
+			lock_time = ros::Time(0);
 		}
-		else if(command.compare("GO")==0 && taglength>1) // Failsafe condition check
+		else if(command.compare("GO") == 0 && taglength > 1) // Failsafe condition check
 		{
-			// Command understood - set color blue
-			n.setParam("/color_key", 3);
 
 			// Initial state
 			state=0;
@@ -384,12 +420,16 @@ int main(int argc, char **argv)
 						state = 1;
 					}
 					else
+					{
 						ROS_INFO("Invalid target: please try again");
+						command = "RESET";
+					}
 					// Verify bound conditions
 					if(target.x < -HSIZE/2 || target.x > HSIZE/2 || target.y < -VSIZE/2 || target.y > VSIZE/2)
 					{
 						ROS_INFO("Target out of the bounds");
 						state = 0;
+						command = "RESET";
 					}
 				}
 				else
@@ -454,6 +494,7 @@ int main(int argc, char **argv)
 					{
 						ROS_INFO("Invalid goal position");
 						state = 0;
+						command = "RESET";
 					}
 					else
 					{
@@ -518,11 +559,13 @@ int main(int argc, char **argv)
 				// Enable robot control
 				enable.data = true;
 				flag_pub.publish(enable);
-				// Set color to green - processing finished, ready for new cmd
-				n.setParam("/color_key", 2);
-				taglength = 0;
+				// Reset tag length
+				taglength = -1;
 			 }
 		 }
+		 
+		 // Set color to green as default (if not locked)
+		 if (!lock_param) n.setParam("/color_key", 2);
 		 
 		 /* Spin and wait for next period */
 		 ros::spinOnce();
