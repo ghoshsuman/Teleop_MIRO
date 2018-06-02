@@ -44,6 +44,9 @@ ros_cagg_msgs::cagg_tags cmd; // Command tag received from speech recognition
 std::string relationships[5] = {"RIGHT", "BEHIND", "LEFT", "FRONT", "NEAR"};
 std::string qualifiers[3] = {"SLIGHTLY", "NORMAL", "EXACTLY"};
 int taglength = -1; // Size of tags received from CAGG
+bool useGesture = false;
+double time_threshold = 3; // Max allowed time between gesture and speech
+ros::Time cmd_time, gesture_time; // Time stamps of the command and stable gesture
 
 /**
  * Subscriber callback function.
@@ -55,7 +58,9 @@ void getCmd(const ros_cagg_msgs::cagg_tags::ConstPtr& msg)
 	ROS_INFO("Command received from interpreter");
 	command_tag = cmd.cagg_tags[0].cagg_tag;
 	command = command_tag[0];
-		
+	cmd_time = cmd.header.stamp;
+	// Detect when to use/ignore the gesture data and set useGesture accordingly
+	useGesture = (abs((gesture_time-cmd_time).toSec())<time_threshold);
 }
 
 /**
@@ -90,6 +95,7 @@ void getGesture(const geometry_msgs::PoseStamped::ConstPtr& pose)
 	gesture.position.x = 100*pose->pose.position.x;
 	gesture.position.y = 100*pose->pose.position.y;
 	gesture.position.z = 100*pose->pose.position.z;
+	gesture_time = pose->header.stamp;
 }
 
 /* Auxiliar function to obtain object information from mocap */
@@ -249,7 +255,7 @@ int main(int argc, char **argv)
 	rrtstar_msgs::Region workspace, goal_reg; // For RRT* algorithm
 	double pathsize; // Since RRT* trajectory size is variable
 	int state = 0; // Control flag for the "look" command
-
+	
 	enable.data = false; // Robot control is initially off
 
 	/* TODO Define custom obstacle dimesnions */
@@ -369,38 +375,39 @@ int main(int argc, char **argv)
 			// Command understood - set color blue
 			n.setParam("/color_key", 3);
 
-			// Call gesture processing service
+			// Initial state
 			state=0;
-			ROS_INFO("Calling Gesture Processing service");
-			srv_gest.request.gesture = gesture;
-			if (cli_gest.call(srv_gest))
-			{
-				target = srv_gest.response.target;
-				// Verify if target is valid number
-				if(std::isfinite(target.x) &&	std::isfinite(target.y))
-				{
-					ROS_INFO("Target obtained: (%f,%f)", target.x, target.y);
-					state = 1;
-				}
-				else
-					ROS_INFO("Invalid target: please try again");
-				// Verify bound conditions
-				if(target.x < -HSIZE/2 || target.x > HSIZE/2 || target.y < -VSIZE/2 || target.y > VSIZE/2)
-				{
-					ROS_INFO("Target out of the bounds");
-					state = 0;
-				}
-			}
-			else
-			{
-				ROS_ERROR("Failed to call Gesture Processing");
-				return 1;
-			}
-			//TODO detect when to use/ignore the gesture data and set useGesture accordingly
-
-			bool useGesture = true;
+			
+			// If a (meaningful) gesture is detected
 			if(useGesture)
 			{
+				// Call gesture processing service
+				ROS_INFO("Calling Gesture Processing service");
+				srv_gest.request.gesture = gesture;
+				if (cli_gest.call(srv_gest))
+				{
+					target = srv_gest.response.target;
+					// Verify if target is valid number
+					if(std::isfinite(target.x) && std::isfinite(target.y))
+					{
+						ROS_INFO("Target obtained: (%f,%f)", target.x, target.y);
+						state = 1;
+					}
+					else
+						ROS_INFO("Invalid target: please try again");
+					// Verify bound conditions
+					if(target.x < -HSIZE/2 || target.x > HSIZE/2 || target.y < -VSIZE/2 || target.y > VSIZE/2)
+					{
+						ROS_INFO("Target out of the bounds");
+						state = 0;
+					}
+				}
+				else
+				{
+					ROS_ERROR("Failed to call Gesture Processing");
+					return 1;
+				}
+			
 				//Set inputs for spatial_reasoner
 				srv_spat.request.center = target;
 				srv_spat.request.dimensions[0].data = 1;
@@ -408,6 +415,7 @@ int main(int argc, char **argv)
 				srv_spat.request.relationship.data = 4; //relation "near"
 
 				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
+				useGesture = false;
 			}
 
 			//We send data to spatial_reasoner even when gesture_processing fails

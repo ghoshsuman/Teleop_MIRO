@@ -154,8 +154,6 @@ int main(int argc, char **argv)
 					enable = false;
 					ROS_INFO("Goal position reached");
 					ROS_INFO("Controller disabled");
-					// Robot is now able to listen to commands - set green light
-					n.setParam("/color_key", 2);
 				}
 			}
 			else
