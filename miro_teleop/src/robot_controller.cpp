@@ -60,12 +60,16 @@ void getCommanderPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 	gesture.y = 100*pose->y;
 }
 
+/* Maps color to lights in robot */
 void colormap(int color, miro_msgs::platform_control cmd_vel)
 {
+	// Convention: 0 = none, 1 = red, 2 = green, 3 = blue, 4 = yellow
 	for (int i = 0; i<18; i++)
 	{
 		if(color>0 && color<4) 
 			cmd_vel.lights_raw[i] = 255*((i+4-color)%3==0);
+		else if(color==4)
+			cmd_vel.lights_raw[i] = 255-255*((i-2)%3==0);
 		else
 			cmd_vel.lights_raw[i] = 0;
 	}
@@ -150,6 +154,8 @@ int main(int argc, char **argv)
 					enable = false;
 					ROS_INFO("Goal position reached");
 					ROS_INFO("Controller disabled");
+					// Robot is now able to listen to commands - set green light
+					n.setParam("/color_key", 2);
 				}
 			}
 			else

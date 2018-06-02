@@ -20,27 +20,30 @@
 #include "rrtstar_msgs/Region.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <iostream>
 #include <cmath>
-#include <vector>
-#include <string>
+#include <iostream>
 #include <sstream>
-
+#include <string>
+#include <vector>
 
 /* Definitions */
 #define RES 40 // Grid resolution
-#define HSIZE 400
-#define VSIZE 400
-#define numObs 3
+#define HSIZE 400 // Workspace x-size 
+#define VSIZE 400 // Workspace y-size
+#define numObs 6 // Number of objects
 
 /* Global variables */
-ros_cagg_msgs::cagg_tags cmd; // Command tag received from interpreter
 geometry_msgs::Pose2D robot, user; // Robot and user positions from mocap
-std::vector<geometry_msgs::Pose2D> obstacles; //Vector of obstacles
-std::vector<geometry_msgs::Point> obsdim; //Vector of object dimensions (populated later manually)
 geometry_msgs::Pose gesture; // Gesture information from mocap
-std::string relationships[5] = {"right", "behind", "left", "front", "near"}; //Maintain order
-std::string qualifiers[3] = {"weak", "normal", "strong"};
+std::vector<geometry_msgs::Pose2D> obstacles; //Vector of obstacles
+std::vector<geometry_msgs::Point> obsdim; // Vector of object dimensions (populated later manually)
+std::vector<std::string> command_tag; // Command tags from CAGG
+std::string command; // Command associated
+ros_cagg_msgs::cagg_tags cmd; // Command tag received from speech recognition
+// Relations and qualifiers - Please maintain order
+std::string relationships[5] = {"RIGHT", "BEHIND", "LEFT", "FRONT", "NEAR"};
+std::string qualifiers[3] = {"SLIGHTLY", "NORMAL", "EXACTLY"};
+int taglength = -1; // Size of tags received from CAGG
 
 /**
  * Subscriber callback function.
@@ -50,6 +53,9 @@ void getCmd(const ros_cagg_msgs::cagg_tags::ConstPtr& msg)
 {
 	cmd.cagg_tags = msg->cagg_tags;
 	ROS_INFO("Command received from interpreter");
+	command_tag = cmd.cagg_tags[0].cagg_tag;
+	command = command_tag[0];
+		
 }
 
 /**
@@ -86,17 +92,42 @@ void getGesture(const geometry_msgs::PoseStamped::ConstPtr& pose)
 	gesture.position.z = 100*pose->pose.position.z;
 }
 
-/**
- * Subscriber callback function.
- * Obtains obstacle pose from Motion Capture node.
- */
-void getObstaclePose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+/* Auxiliar function to obtain object information from mocap */
+void addToObsList(const geometry_msgs::Pose2D::ConstPtr& groundpose, int i)
 {
 	geometry_msgs::Pose2D obs;
 	obs.x = 100*groundpose->x;
 	obs.y = 100*groundpose->y;
 	obs.theta = groundpose->theta;
-	obstacles.push_back(obs);
+	obstacles[i]=obs;
+}
+/**
+ * Subscriber callback functions:
+ * Obtains object pose from Motion Capture node.
+ */
+void getObstacle1Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 1);
+}
+void getObstacle2Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 2);
+}
+void getObstacle3Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 3);
+}
+void getObstacle4Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 4);
+}
+void getObstacle5Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 5);
+}
+void getObstacle6Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
+{
+	addToObsList(groundpose, 6);
 }
 
 /**
@@ -104,7 +135,7 @@ void getObstaclePose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
  * Attaches matrix information to an img variable and displays it on screen.
  */
 
-/* Commented due to opencv issues - TODO Uncomment later
+/* Commented due to opencv lib issues - TODO Uncomment later
 void plot(const char* name, float matrix[][RES])
 {
 	cv::Mat img;
@@ -116,12 +147,13 @@ void plot(const char* name, float matrix[][RES])
 }
 */
 
+/* Auxiliary function to generate kernels */
 int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
 miro_teleop::SpatialReasoner srv_spat, miro_teleop::PertinenceMapping srv_pert,
 int state, std_msgs::Float64* landscape)
 {
-	std_msgs::Float64* kernel;
-	//Call spatial_reasoner
+	std_msgs::Float64* kernel; // Output kernel
+	// Calling spatial_reasoner
 	if (cli_spat.call(srv_spat))
 	{
 		float spmat0[RES][RES]; //For opencv plot
@@ -142,8 +174,8 @@ int state, std_msgs::Float64* landscape)
 	//Setting inputs for pertinence map service
 	for (int i=0; i<RES*RES; i++)
 	{
-		srv_pert.request.M1.push_back(landscape[i]);
-		srv_pert.request.M2.push_back(kernel[i]);
+		srv_pert.request.M1[i] = landscape[i];
+		srv_pert.request.M2[i] = kernel[i];
 	}
 
 	//Calling pertinence_mapper
@@ -174,18 +206,15 @@ int state, std_msgs::Float64* landscape)
 		ROS_ERROR("Failed to call Pertinence Mapping");
 		return 1;
 	}
-	srv_pert.request.M1.clear();
-	srv_pert.request.M2.clear();
 	return state;
 }
 
-// Function to verify if some point (x,y) is inside any object
-bool isIn(int i, int j, std::vector<geometry_msgs::Pose2D> obstacles,
-						std::vector<geometry_msgs::Point> obsdim)
+// Function to verify if some point (x,y) is inside any object from a given list
+bool isIn(int i, int j)
 {
 	double cx, cy, dx, dy, x, y;
-	x = HSIZE/double(2*RES)+HSIZE*(x/double(RES))-HSIZE/2;
-	y = VSIZE/double(2*RES)+VSIZE*(y/double(RES))-VSIZE/2;
+	x = HSIZE/double(2*RES)+HSIZE*(j/double(RES))-HSIZE/2;
+	y = VSIZE/double(2*RES)+VSIZE*(i/double(RES))-VSIZE/2;
 	for (int k = 0; k<obstacles.size(); k++)
 	{
 		cx = obstacles[k].x;
@@ -198,21 +227,32 @@ bool isIn(int i, int j, std::vector<geometry_msgs::Pose2D> obstacles,
 	return false;
 }
 
+
+//Initialize landscape[] by blacking out all obstacles in a white background
+void initKernel(std_msgs::Float64* landscape)
+{
+	for (int i=0; i<RES; i++)
+		for (int j=0; j<RES; j++)
+			// If point is not inside any obstacle initial value is 1
+			// i = row (y); j = column (x)
+			if(!isIn(i,j)) landscape[i*RES+j].data = 1;
+}
+
 int main(int argc, char **argv)
 {
 	/* Definitions */
 	geometry_msgs::Pose2D target, goal; // Gesture target and goal positions
+	geometry_msgs::Vector3 init; // Initial position for the path planner
 	miro_teleop::Path rrtPath; // Trajectory to be published
 	std_msgs::Float64 landscape[RES*RES]; // Final landscape sent to MonteCarlo, updated after each command
 	std_msgs::Bool enable; // Controller enable flag
 	rrtstar_msgs::Region workspace, goal_reg; // For RRT* algorithm
-	geometry_msgs::Vector3 init; // Initial position for the path planner
 	double pathsize; // Since RRT* trajectory size is variable
 	int state = 0; // Control flag for the "look" command
 
-	enable.data = false;
+	enable.data = false; // Robot control is initially off
 
-	/* TODO Define custom obstacle dimesnions*/
+	/* TODO Define custom obstacle dimesnions */
 	for(int i=0; i<numObs; i++)
 	{
 		geometry_msgs::Point dim;
@@ -227,57 +267,49 @@ int main(int argc, char **argv)
 
 	/* Initialize publishers and subscribers */
 	// Publishers to robot controller
-	ros::Publisher path_pub =
-	n.advertise<miro_teleop::Path>("path", 1);
-	ros::Publisher flag_pub =
-	n.advertise<std_msgs::Bool>("enable", 1);
+	ros::Publisher path_pub = n.advertise<miro_teleop::Path>("path", 1);
+	ros::Publisher flag_pub = n.advertise<std_msgs::Bool>("enable", 1);
 
 	// Subscriber from command interpreter
-	ros::Subscriber sub_cmd =	n.subscribe("command", 4, getCmd);
+	ros::Subscriber sub_cmd = n.subscribe("CAGG/adapted/semantic_tags", 4, getCmd);
+
 	// Subscribers from motion capture (mocap)
 	ros::Subscriber sub_robot =	n.subscribe("Robot/ground_pose", 1, getRobotPose);
-	ros::Subscriber sub_gesture =	n.subscribe("Gesture/pose", 1, getGesture);
+	ros::Subscriber sub_gesture = n.subscribe("stable_pose", 1, getGesture);
 	ros::Subscriber sub_user =	n.subscribe("User/ground_pose", 1, getUserPose);
-	std::vector<ros::Subscriber> sub_obs;
-	for (int i=0; i<numObs; i++)
-	{
-		std::string ichar =
-			static_cast<std::ostringstream*>(&(std::ostringstream()<<i))->str();
-		std::string topic_name =
-			"Obstacle" + ichar + "/ground_pose";
-		sub_obs.push_back(n.subscribe(topic_name, 1, getObstaclePose));
-	}
+	ros::Subscriber sub_obs1 = n.subscribe("Obstacle1/ground_pose", 1, getObstacle1Pose);
+	ros::Subscriber sub_obs2 = n.subscribe("Obstacle2/ground_pose", 1, getObstacle2Pose);
+	ros::Subscriber sub_obs3 = n.subscribe("Obstacle3/ground_pose", 1, getObstacle3Pose);
+	ros::Subscriber sub_obs4 = n.subscribe("Obstacle4/ground_pose", 1, getObstacle4Pose);
+	ros::Subscriber sub_obs5 = n.subscribe("Obstacle5/ground_pose", 1, getObstacle5Pose);
+	ros::Subscriber sub_obs6 = n.subscribe("Obstacle6/ground_pose", 1, getObstacle6Pose);
 
 	/* Initialize service clients and handlers */
 	ros::ServiceClient cli_spat = n.serviceClient<miro_teleop::SpatialReasoner>("spatial_reasoner");
 	miro_teleop::SpatialReasoner srv_spat;
-
 	ros::ServiceClient cli_gest = n.serviceClient<miro_teleop::GestureProcessing>("gesture_processing");
 	miro_teleop::GestureProcessing srv_gest;
-
 	ros::ServiceClient cli_pert = n.serviceClient<miro_teleop::PertinenceMapping>("pertinence_mapper");
 	miro_teleop::PertinenceMapping srv_pert;
-
 	ros::ServiceClient cli_mont = n.serviceClient<miro_teleop::MonteCarlo>("monte_carlo");
 	miro_teleop::MonteCarlo srv_mont;
-
 	ros::ServiceClient cli_rrts = n.serviceClient<rrtstar_msgs::rrtStarSRV>("rrtStarService");
 	rrtstar_msgs::rrtStarSRV srv_rrts;
 
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
+	ros::spinOnce(); // So that obstacle list is populated
 
-	/* Characterize workspace region (predefined) */
+	/* Characterize workspace region for RRT* (predefined) */
 	workspace.center_x = 0;
 	workspace.center_y = 0;
 	workspace.center_z = 0;
 	workspace.size_x = HSIZE;
 	workspace.size_y = VSIZE;
 	workspace.size_z = 0;
-
 	srv_rrts.request.WS = workspace; // RRT* request member
 
-	/* Assuming static objects, assign the obstacle region only once */
+	/* Assuming static objects, assign the obstacle region for RRT* once */
 	for (int i=0; i<numObs; i++)
 	{
 		rrtstar_msgs::Region obs_reg;
@@ -290,14 +322,13 @@ int main(int argc, char **argv)
 		srv_rrts.request.Obstacles.push_back(obs_reg); // RRT* request member
 	}
 
-	ROS_INFO("Command logic (master) node active");
-	ROS_INFO("Initialization: calling spatial reasoner");
+	// Initialize kernel
+	initKernel(landscape);
 
-	//Initialize landscape[] by blacking out all obstacles in a white background
-	for (int i=0; i<RES; i++)
-		for (int j=0; j<RES; j++)
-			// If point is not inside any obstacle initial value is 1
-			if(!isIn(i,j,obstacles,obsdim)) landscape[i].data = 1;
+	ROS_INFO("Command logic (master) node active");
+
+	// Convention: 0 = none, 1 = red, 2 = green, 3 = blue, 4 = yellow
+	n.setParam("/color_key", 2);
 
 	/* Main loop */
 	while(ros::ok())
@@ -306,24 +337,37 @@ int main(int argc, char **argv)
 		// Parse each relation to extract "object#", "relationship", "qualifier"
 		// Call spatial_reasoner once for each relation to generate one kernel each
 		// Call pertinence mapping once for each command to get final landscape
-
-		int taglength=cmd.cagg_tags.size();
-		std::vector<std::string> command_tag=cmd.cagg_tags[0].cagg_tag;
-		std::string command = command_tag[0];
-		if(command.compare("RESET")==0)
+		
+		// Obtain command associated and corresponding tag length
+		taglength = cmd.cagg_tags.size();
+		
+		// Update robot lights to instruct user if command was understood
+		if(taglength == 0)
+		{ 
+			n.setParam("/color_key", 1); //Empty tag: command not understood (red)
+			taglength = -1;
+		}
+		if(taglength > 0) 
+			n.setParam("/color_key", 4); //Command being processed (yellow)
+		
+		// Work based on command received when callback is executed
+		// Reset: user not satisfied (aborted), Stop: user satisfied (done)
+		if(command.compare("RESET") == 0) // Stop robot, clear kernel
 		{
 			enable.data = false;
 			flag_pub.publish(enable);
+			initKernel(landscape); // Reinitialize kernel
 		}
-		else if(command.compare("STOP")==0)
+		else if(command.compare("STOP")==0) // Stop robot, clear kernel
 		{
 			enable.data = false;
 			flag_pub.publish(enable);
+			initKernel(landscape); // Reinitialize kernel
 		}
-		else if(command.compare("GO")==0 && taglength>1) //Failsafe condition check
+		else if(command.compare("GO")==0 && taglength>1) // Failsafe condition check
 		{
-			//TODO: Stop Miro's current motion while new path is being computed
-			// Or some feedback to show that command is being processed
+			// Command understood - set color blue
+			n.setParam("/color_key", 3);
 
 			// Call gesture processing service
 			state=0;
@@ -475,11 +519,15 @@ int main(int argc, char **argv)
 				// Enable robot control
 				enable.data = true;
 				flag_pub.publish(enable);
+				// Set color to green - processing finished, ready for new cmd
+				n.setParam("/color_key", 2);
+				taglength = -1;
 			 }
 		 }
+		 
 		 /* Spin and wait for next period */
 		 ros::spinOnce();
 		 loop_rate.sleep();
 	 }
 	 return 0;
- }
+}
