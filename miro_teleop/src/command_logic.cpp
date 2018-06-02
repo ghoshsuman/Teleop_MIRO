@@ -130,7 +130,7 @@ void getObstacle6Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
  * Attaches matrix information to an img variable and displays it on screen.
  */
 
-/* Commented due to opencv issues - TODO Uncomment later
+// Commented due to opencv issues - TODO Uncomment later
 void plot(const char* name, float matrix[][RES])
 {
 	cv::Mat img;
@@ -140,7 +140,6 @@ void plot(const char* name, float matrix[][RES])
 	cv::imshow(name, img);
 	cv::waitKey(0);
 }
-*/
 
 int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
 miro_teleop::SpatialReasoner srv_spat, miro_teleop::PertinenceMapping srv_pert,
@@ -158,6 +157,7 @@ int state, std_msgs::Float64* landscape)
 		}
 		// Display landscapes (requires opencv package)
 		ROS_INFO("Gesture based landscape generated succesfully");
+		plot("Relation Kernel", spmat0);
 	}
 	else
 	{
@@ -192,7 +192,7 @@ int state, std_msgs::Float64* landscape)
 			state = 2;
 			ROS_INFO("Gesture based landscape mapped");
 			// Plot using opencv (TODO Uncomment)
-			//plot("Mapped landscape", pertmatrix);
+			plot("Mapped landscape", pertmatrix);
 		}
 	}
 	else
