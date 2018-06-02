@@ -65,6 +65,10 @@ add_executable(robot_controller src/robot_controller.cpp)
 target_link_libraries(robot_controller ${catkin_LIBRARIES})
 add_dependencies(robot_controller miro_teleop_gencpp miro_msgs_gencpp miro_msgs_genpy)
 
+add_executable(tracker_node src/tracker_node.cpp)
+target_link_libraries(tracker_node ${catkin_LIBRARIES})
+add_dependencies(tracker_node miro_teleop_gencpp)
+
 catkin_package(CATKIN_DEPENDS message_runtime)
 
 include_directories(
