@@ -4,49 +4,49 @@
 #
 rigid_bodies:
     '1':
-        pose: Obstacle1/pose
-        pose2d: Obstacle1/ground_pose
-        child_frame_id: Obstacle1/base_link
-        parent_frame_id: world
-    '2':
-        pose: Obstacle2/pose
-        pose2d: Obstacle2/ground_pose
-        child_frame_id: Obstacle2/base_link
-        parent_frame_id: world
-    '3':
-        pose: Obstacle3/pose
-        pose2d: Obstacle3/ground_pose
-        child_frame_id: Obstacle3/base_link
-        parent_frame_id: world
-    '4':
-        pose: Obstacle4/pose
-        pose2d: Obstacle4/ground_pose
-        child_frame_id: Obstacle4/base_link
-        parent_frame_id: world
-    '5':
-        pose: Obstacle5/pose
-        pose2d: Obstacle5/ground_pose
-        child_frame_id: Obstacle5/base_link
-        parent_frame_id: world
-    '6':
-        pose: Obstacle6/pose
-        pose2d: Obstacle6/ground_pose
-        child_frame_id: Obstacle6/base_link
-        parent_frame_id: world
-    '7':
         pose: Robot/pose
         pose2d: Robot/ground_pose
         child_frame_id: Robot/base_link
         parent_frame_id: world
-    '8':
+    '2':
         pose: User/pose
         pose2d: User/ground_pose
         child_frame_id: User/base_link
         parent_frame_id: world
-    '9':
+    '3':
         pose: Gesture/pose
         pose2d: Gesture/ground_pose
         child_frame_id: Gesture/base_link
+        parent_frame_id: world
+    '4':
+        pose: Obstacle1/pose
+        pose2d: Obstacle1/ground_pose
+        child_frame_id: Obstacle1/base_link
+        parent_frame_id: world
+    '5':
+        pose: Obstacle2/pose
+        pose2d: Obstacle2/ground_pose
+        child_frame_id: Obstacle2/base_link
+        parent_frame_id: world
+    '6':
+        pose: Obstacle3/pose
+        pose2d: Obstacle3/ground_pose
+        child_frame_id: Obstacle3/base_link
+        parent_frame_id: world
+    '7':
+        pose: Obstacle4/pose
+        pose2d: Obstacle4/ground_pose
+        child_frame_id: Obstacle4/base_link
+        parent_frame_id: world
+    '8':
+        pose: Obstacle5/pose
+        pose2d: Obstacle5/ground_pose
+        child_frame_id: Obstacle5/base_link
+        parent_frame_id: world
+    '9':
+        pose: Obstacle6/pose
+        pose2d: Obstacle6/ground_pose
+        child_frame_id: Obstacle6/base_link
         parent_frame_id: world
 optitrack_config:
         multicast_address: 224.0.0.1
