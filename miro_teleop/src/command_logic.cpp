@@ -59,7 +59,17 @@ void getCmd(const ros_cagg_msgs::cagg_tags::ConstPtr& msg)
 	cmd.cagg_tags = msg->cagg_tags;
 	ROS_INFO("Command received from interpreter");
 	command_tag = cmd.cagg_tags[0].cagg_tag;
-	command = command_tag[0];
+	if(command_tag.size()==0) 
+	{	
+		ROS_INFO("No tag found: command not understood");
+		command = "";
+	}	
+	else
+	{
+		command = command_tag[0];
+		ROS_INFO("Interpreted command: %s", command.c_str());
+	 	
+	}
 	cmd_time = cmd.header.stamp;
 	// Detect when to use/ignore the gesture data and set useGesture accordingly
 	useGesture = (abs((gesture_time-cmd_time).toSec())<time_threshold);
@@ -248,6 +258,8 @@ void initKernel(std_msgs::Float64* landscape)
 
 int main(int argc, char **argv)
 {
+
+
 	/* Definitions */
 	geometry_msgs::Pose2D target, goal; // Gesture target and goal positions
 	geometry_msgs::Vector3 init; // Initial position for the path planner
@@ -260,14 +272,6 @@ int main(int argc, char **argv)
 	
 	enable.data = false; // Robot control is initially off
 
-	/* TODO Define custom obstacle dimesnions */
-	for(int i=0; i<numObs; i++)
-	{
-		geometry_msgs::Point dim;
-		dim.x=60;
-		dim.y=60;
-		obsdim.push_back(dim);
-	}
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
@@ -317,8 +321,17 @@ int main(int argc, char **argv)
 	workspace.size_z = 0;
 	srv_rrts.request.WS = workspace; // RRT* request member
 
+	/* TODO Define custom obstacle dimesnions */
+	for(int i=0; i<obstacles.size(); i++)
+	{
+		geometry_msgs::Point dim;
+		dim.x=60;
+		dim.y=60;
+		obsdim.push_back(dim);
+	}
+
 	/* Assuming static objects, assign the obstacle region for RRT* once */
-	for (int i=0; i<numObs; i++)
+	for (int i=0; i<obstacles.size(); i++)
 	{
 		rrtstar_msgs::Region obs_reg;
 		obs_reg.center_x = obstacles[i].x;
