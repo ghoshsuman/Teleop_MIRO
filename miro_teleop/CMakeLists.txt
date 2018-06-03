@@ -47,10 +47,6 @@ include_directories(
   include
 )
 
-add_executable(interpreter src/interpreter.cpp)
-target_link_libraries(interpreter ${catkin_LIBRARIES})
-add_dependencies(interpreter miro_teleop_gencpp)
-
 add_executable(command_logic src/command_logic.cpp)
 target_link_libraries(command_logic ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 add_dependencies(command_logic miro_teleop_gencpp rrtstar_msgs_gencpp)

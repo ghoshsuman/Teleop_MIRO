@@ -27,16 +27,16 @@
 #include <vector>
 
 /* Definitions */
-#define RES 40 // Grid resolution
-#define HSIZE 400 // Workspace x-size 
-#define VSIZE 400 // Workspace y-size
-#define numObs 6 // Number of objects
+#define HSIZE 300 // Horizontal map size (in cm)
+#define VSIZE 300 // Vertical map size (in cm)
+#define RES 30 // Grid resolution
+#define numObs 1 // Number of objects
 
 /* Global variables */
 geometry_msgs::Pose2D robot, user; // Robot and user positions from mocap
 geometry_msgs::Pose gesture; // Gesture information from mocap
-std::vector<geometry_msgs::Pose2D> obstacles; //Vector of obstacles
-std::vector<geometry_msgs::Point> obsdim; // Vector of object dimensions (populated later manually)
+std::vector<geometry_msgs::Pose2D> obstacles(numObs); //Vector of obstacles
+std::vector<geometry_msgs::Point> obsdim(numObs); // Vector of object dimensions (populated later manually)
 std::vector<std::string> command_tag; // Command tags from CAGG
 std::string command; // Command associated
 ros_cagg_msgs::cagg_tags cmd; // Command tag received from speech recognition
@@ -70,8 +70,9 @@ void getCmd(const ros_cagg_msgs::cagg_tags::ConstPtr& msg)
 		ROS_INFO("Interpreted command: %s", command.c_str());
 	 	
 	}
-	cmd_time = cmd.header.stamp;
+	cmd_time = msg->header.stamp;
 	// Detect when to use/ignore the gesture data and set useGesture accordingly
+	ROS_INFO("Time between gesture and command: %f",abs((gesture_time-cmd_time).toSec()));
 	useGesture = (abs((gesture_time-cmd_time).toSec())<time_threshold);
 	cmd_received = true;
 }
@@ -118,7 +119,7 @@ void addToObsList(const geometry_msgs::Pose2D::ConstPtr& groundpose, int i)
 	obs.x = 100*groundpose->x;
 	obs.y = 100*groundpose->y;
 	obs.theta = groundpose->theta;
-	obstacles[i]=obs;
+	obstacles[i-1]=obs;
 }
 /**
  * Subscriber callback functions:
@@ -169,10 +170,11 @@ int generateLandscape(ros::ServiceClient cli_spat, ros::ServiceClient cli_pert,
 miro_teleop::SpatialReasoner srv_spat, miro_teleop::PertinenceMapping srv_pert,
 int state, std_msgs::Float64* landscape)
 {
-	std_msgs::Float64* kernel; // Output kernel
+	std_msgs::Float64 kernel[RES*RES]; // Output kernel
 	// Calling spatial_reasoner
 	if (cli_spat.call(srv_spat))
 	{
+		ROS_INFO("I'm alive!!");
 		float spmat0[RES][RES]; //For opencv plot
 		for (int i=0; i<RES*RES; i++)
 		{
@@ -180,20 +182,21 @@ int state, std_msgs::Float64* landscape)
 			spmat0[i/RES][i%RES] = kernel[i].data*255;
 		}
 		// Display landscapes (requires opencv package)
-		ROS_INFO("Gesture based landscape generated succesfully");
+		ROS_INFO("Landscape generated succesfully");
 		plot("Relation Kernel", spmat0);
 	}
 	else
 	{
 		ROS_ERROR("Failed to call spatial reasoner");
-		return 1;
+		return -1;
 	}
-
+	srv_pert.request.M1.clear();
+	srv_pert.request.M2.clear();
 	//Setting inputs for pertinence map service
 	for (int i=0; i<RES*RES; i++)
 	{
-		srv_pert.request.M1[i] = landscape[i];
-		srv_pert.request.M2[i] = kernel[i];
+		srv_pert.request.M1.push_back(landscape[i]);
+		srv_pert.request.M2.push_back(kernel[i]);
 	}
 
 	//Calling pertinence_mapper
@@ -222,9 +225,10 @@ int state, std_msgs::Float64* landscape)
 	else
 	{
 		ROS_ERROR("Failed to call Pertinence Mapping");
-		return 1;
+		return -1;
 	}
 	return state;
+
 }
 
 // Function to verify if some point (x,y) is inside any object from a given list
@@ -232,7 +236,7 @@ bool isIn(int i, int j)
 {
 	double cx, cy, dx, dy, x, y;
 	x = HSIZE/double(2*RES)+HSIZE*(j/double(RES))-HSIZE/2;
-	y = VSIZE/double(2*RES)+VSIZE*(i/double(RES))-VSIZE/2;
+	y = VSIZE/double(2*RES)+VSIZE*((RES-i-1)/double(RES))-VSIZE/2;
 	for (int k = 0; k<obstacles.size(); k++)
 	{
 		cx = obstacles[k].x;
@@ -272,10 +276,15 @@ int main(int argc, char **argv)
 	
 	enable.data = false; // Robot control is initially off
 
-
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
 	ros::NodeHandle n;
+
+	// Initialize timing variables
+	lock_time = ros::Time::now(); 
+	cmd_time = ros::Time::now();  
+	gesture_time = ros::Time::now(); 
+
 
 	/* Initialize publishers and subscribers */
 	// Publishers to robot controller
@@ -310,7 +319,6 @@ int main(int argc, char **argv)
 
 	/* Update rate (period) */
 	ros::Rate loop_rate(10);
-	ros::spinOnce(); // So that obstacle list is populated
 
 	/* Characterize workspace region for RRT* (predefined) */
 	workspace.center_x = 0;
@@ -322,26 +330,18 @@ int main(int argc, char **argv)
 	srv_rrts.request.WS = workspace; // RRT* request member
 
 	/* TODO Define custom obstacle dimesnions */
-	for(int i=0; i<obstacles.size(); i++)
+	for(int i=0; i<numObs; i++)
 	{
-		geometry_msgs::Point dim;
-		dim.x=60;
-		dim.y=60;
-		obsdim.push_back(dim);
+		// Set some default values
+		obstacles[i].x = nan("");
+		obstacles[i].y = nan("");
+		obstacles[i].theta = nan("");
+
+		obsdim[i].x=60;
+		obsdim[i].y=60;
 	}
 
-	/* Assuming static objects, assign the obstacle region for RRT* once */
-	for (int i=0; i<obstacles.size(); i++)
-	{
-		rrtstar_msgs::Region obs_reg;
-		obs_reg.center_x = obstacles[i].x;
-		obs_reg.center_y = obstacles[i].y;
-		obs_reg.center_z = 0;
-		obs_reg.size_x = obsdim[i].x;
-		obs_reg.size_y = obsdim[i].y;
-		obs_reg.size_z = 0;
-		srv_rrts.request.Obstacles.push_back(obs_reg); // RRT* request member
-	}
+	ros::spinOnce(); // So that obstacle list is populated
 
 	// Initialize kernel
 	initKernel(landscape);
@@ -369,8 +369,11 @@ int main(int argc, char **argv)
 		// Call pertinence mapping once for each command to get final landscape
 		
 		// Timing control of the lights
-		if(abs((lock_time-ros::Time(0)).toSec())>3) lock_param = false;
-		
+		if(abs((lock_time-ros::Time::now()).toSec())>3) 
+		{
+			lock_param = false;
+			n.setParam("/color_key", 2);
+		}
 		// Obtain command associated and corresponding tag length
 		if(cmd_received)
 		{
@@ -380,7 +383,7 @@ int main(int argc, char **argv)
 				if (!lock_param) n.setParam("/color_key", 1);
 				// Lock for 3 sec
 				lock_param = true;
-				lock_time = ros::Time(0);
+				lock_time = ros::Time::now();
 			}
 			else // Command understood - set color blue (3)
 			{
@@ -399,7 +402,8 @@ int main(int argc, char **argv)
 			n.setParam("/color_key", 5); // Set lights to purple (5)
 			// Lock for 3 sec
 			lock_param = true;
-			lock_time = ros::Time(0);
+			lock_time = ros::Time::now();
+			command = "";
 		}
 		else if(command.compare("STOP") == 0) // Stop robot, clear kernel
 		{
@@ -409,7 +413,8 @@ int main(int argc, char **argv)
 			n.setParam("/color_key", 6); // Set lights to white (6)
 			// Lock for 3 sec
 			lock_param = true;
-			lock_time = ros::Time(0);
+			lock_time = ros::Time::now();
+			command = "";
 		}
 		else if(command.compare("GO") == 0 && taglength > 1) // Failsafe condition check
 		{
@@ -435,14 +440,12 @@ int main(int argc, char **argv)
 					else
 					{
 						ROS_INFO("Invalid target: please try again");
-						command = "RESET";
 					}
 					// Verify bound conditions
 					if(target.x < -HSIZE/2 || target.x > HSIZE/2 || target.y < -VSIZE/2 || target.y > VSIZE/2)
 					{
 						ROS_INFO("Target out of the bounds");
 						state = 0;
-						command = "RESET";
 					}
 				}
 				else
@@ -452,12 +455,19 @@ int main(int argc, char **argv)
 				}
 			
 				//Set inputs for spatial_reasoner
-				srv_spat.request.center = target;
-				srv_spat.request.dimensions[0].data = 1;
-				srv_spat.request.dimensions[1].data = 1;
-				srv_spat.request.relationship.data = 4; //relation "near"
+				if(state==1)
+				{
+					srv_spat.request.center = target;
+					srv_spat.request.dimx.data = 1;
+					srv_spat.request.dimy.data = 1;
+					srv_spat.request.relationship.data = 4; //relation "near"
 
-				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
+					state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
+					if(state == -1)
+						return 1;
+				}
+				else state = 2;
+	
 				useGesture = false;
 			}
 
@@ -466,14 +476,16 @@ int main(int argc, char **argv)
 			// Assuming tags in the form of
 			// [["go","quantifier","strictly"](Optional),["go","relation","right"],["go","object","1"]
 			int objid = atoi(cmd.cagg_tags[taglength-1].cagg_tag[2].c_str());
+			ROS_INFO("Object id: %d",objid);
 			srv_spat.request.center = obstacles[objid-1];
-			srv_spat.request.dimensions[0].data = obsdim[objid-1].x;
-			srv_spat.request.dimensions[1].data = obsdim[objid-1].y;
+			srv_spat.request.dimx.data = obsdim[objid-1].x;
+			srv_spat.request.dimy.data = obsdim[objid-1].y;
 			for (int i=0; i<5; i++)
 			{
-				if(relationships[i].compare(cmd.cagg_tags[taglength-2].cagg_tag[2]))
+				if(relationships[i].compare(cmd.cagg_tags[taglength-2].cagg_tag[2])==0)
 				{
 					srv_spat.request.relationship.data = i;
+					ROS_INFO("Relation found: %s",relationships[i].c_str());					
 					break;
 				}
 			}
@@ -481,16 +493,21 @@ int main(int argc, char **argv)
 			{
 				for (int i=0; i<3; i++)
 				{
-					if(qualifiers[i].compare(cmd.cagg_tags[taglength-3].cagg_tag[2]))
+					if(qualifiers[i].compare(cmd.cagg_tags[taglength-3].cagg_tag[2])==0)
 					{
 						srv_spat.request.qualifier.data = i;
+						ROS_INFO("Qualifier: %s",qualifiers[i].c_str());	
 						break;
 					}
 				}
 			}
 
 			srv_spat.request.user = user;
+			ROS_INFO("User detected");
 			state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
+			if(state == -1)
+				return 1;
+			ROS_INFO("Kernel generated successfully");
 
 			if(state==2)
 			{
@@ -527,6 +544,22 @@ int main(int argc, char **argv)
 			if(state==3)
 			{
 				ROS_INFO("Calling RRT* Path Planner service");
+				srv_rrts.request.Obstacles.clear();
+				/* Assign the obstacle region for RRT* */
+				for (int i=0; i<numObs; i++)
+				{
+					if(!isnan(obstacles[i].x) || !isnan(obstacles[i].y))
+					{
+						rrtstar_msgs::Region obs_reg;
+						obs_reg.center_x = obstacles[i].x;
+						obs_reg.center_y = obstacles[i].y;
+						obs_reg.center_z = 0;
+						obs_reg.size_x = obsdim[i].x;
+						obs_reg.size_y = obsdim[i].y;
+						obs_reg.size_z = 0;
+						srv_rrts.request.Obstacles.push_back(obs_reg); // RRT* request member
+					}				
+				}
 
 				// Initial position is robot current one
 				init.x = robot.x;
@@ -575,10 +608,10 @@ int main(int argc, char **argv)
 				// Reset tag length
 				taglength = -1;
 			 }
+
+		 	n.setParam("/color_key", 2);
 		 }
 		 
-		 // Set color to green as default (if not locked)
-		 if (!lock_param) n.setParam("/color_key", 2);
 		 
 		 /* Spin and wait for next period */
 		 ros::spinOnce();

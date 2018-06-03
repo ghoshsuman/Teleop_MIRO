@@ -61,22 +61,22 @@ void getCommanderPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 }
 
 /* Maps color to lights in robot */
-void colormap(int color, miro_msgs::platform_control cmd_vel)
+void colormap(int color, miro_msgs::platform_control *cmd_vel)
 {
 	// Convention: 0 = none, 1 = red, 2 = green, 3 = blue, 4 = yellow
 	// 5 - purple. 6 - white
 	for (int i = 0; i<18; i++)
 	{
 		if(color>0 && color<4) 
-			cmd_vel.lights_raw[i] = 255*((i+4-color)%3==0);
+			cmd_vel->lights_raw[i] = 255*((i+4-color)%3==0);
 		else if(color==4)
-			cmd_vel.lights_raw[i] = 255-255*((i-2)%3==0);
+			cmd_vel->lights_raw[i] = 255-255*((i-2)%3==0);
 		else if(color==5)
-			cmd_vel.lights_raw[i] = 255-255*((i-1)%3==0);
+			cmd_vel->lights_raw[i] = 255-255*((i-1)%3==0);
 		else if(color==6)
-			cmd_vel.lights_raw[i] = 255;
+			cmd_vel->lights_raw[i] = 255;
 		else
-			cmd_vel.lights_raw[i] = 0;
+			cmd_vel->lights_raw[i] = 0;
 	}
 }
 
@@ -96,7 +96,8 @@ void colormap(int color, miro_msgs::platform_control cmd_vel)
  * flag is set to 'false'.
  */
 int main(int argc, char **argv)
-{
+{	
+
 	/* Definitions */
 	geometry_msgs::Vector3 ref; // Reference position (from trajectory)
 	geometry_msgs::Pose2D commPos; // Commander position
@@ -132,8 +133,9 @@ int main(int argc, char **argv)
 	/* Main loop */
 	while (ros::ok())
 	{
-		/* Get color from parameter server (default is 0 - no color) */
-  		n.param("/color_key", color, 0);
+		/* Get color from parameter server (default is -1 - no color) */
+  		n.param("/color_key", color, -1);
+		ROS_INFO("Color: %d", color);
 
 		/* Perform control only with flag enabled */
 		if(enable)
@@ -171,7 +173,7 @@ int main(int argc, char **argv)
 				/* Compose message and publish */
 				cmd_vel.body_vel.linear.x = vr;
 				cmd_vel.body_vel.angular.z = vtheta;
-				colormap(color, cmd_vel);
+				colormap(color, &cmd_vel);
 				ctl_pub.publish(cmd_vel);
 
 				ROS_INFO("Position reference: (%f, %f)",ref.x,ref.y);
@@ -185,7 +187,7 @@ int main(int argc, char **argv)
 			/* Otherwise send a null velocity to robot */
 			cmd_vel.body_vel.linear.x  = 0.0;
 			cmd_vel.body_vel.angular.z = 0.0;
-			colormap(color, cmd_vel);
+			colormap(color, &cmd_vel);
 			ctl_pub.publish(cmd_vel);
 		}
 

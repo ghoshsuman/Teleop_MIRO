@@ -15,10 +15,10 @@ float v_ref = 0.025;
 double d_treshold = v_ref * (1.0 /(double) frequency);
 
 // Flag used to decide when the node can publish messages
-bool pub_flag = true;
+bool pub_flag = false;
 
 // Publisher declaration on the topic
-ros::Publisher pub, blah;
+ros::Publisher pub;
 	
 void poseCallback(const geometry_msgs::PoseStampedPtr& msg){
   
@@ -31,7 +31,6 @@ void poseCallback(const geometry_msgs::PoseStampedPtr& msg){
   		}
   		else
   		{
-  			blah.publish(p0);
 			// Distance calculated between two subsequent hand's points
 			double distance = sqrt( pow((double)p0.x-(double)msg->pose.position.x,2)+
 									pow((double)p0.y-(double)msg->pose.position.y,2)+
@@ -41,7 +40,7 @@ void poseCallback(const geometry_msgs::PoseStampedPtr& msg){
 				pub_flag = true;
 			}
 			
-			ROS_INFO("Distance: %f",distance);
+			ROS_INFO("Distance: %f, tag: %d",distance,pub_flag);
 		
 			// Under this threshold the arm is considered stationary and the message could be published
 			if(distance < d_treshold && pub_flag){							
@@ -66,9 +65,6 @@ int main( int argc, char** argv )
 	p1.y = 0;
 	p1.z = 200;
 	p0 = p1;
-	// For debuggine purposes
-	blah = node.advertise<geometry_msgs::Point>("p0", 5);
-	
 	
 	pub = node.advertise<geometry_msgs::PoseStamped>("stable_pose", 5);
 	

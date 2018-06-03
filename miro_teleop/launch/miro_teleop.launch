@@ -1,11 +1,11 @@
 <launch>
+	<include file="$(find mocap_optitrack)/launch/mocap.launch"/>
+	<include file="$(find speech_interaction)/launch/speech_adapter.launch"/>
         <node pkg="miro_teleop" type="gesture_processing_server" name="gesture_processing_server" launch-prefix="xterm -hold -e"/>
         <node pkg="miro_teleop" type="pertinence_mapping_server" name="pertinence_mapping_server" launch-prefix="xterm -hold -e"/>
         <node pkg="miro_teleop" type="spatial_reasoning_server" name="spatial_reasoning_server" launch-prefix="xterm -hold -e"/>
         <node pkg="miro_teleop" type="monte_carlo_server" name="monte_carlo_server" launch-prefix="xterm -hold -e"/>
         <node pkg="rrtstar" type="rrtstar" name="rrtstar" launch-prefix="xterm -hold -e"/>
-        <node pkg="miro_teleop" type="interpreter" name="interpreter" launch-prefix="xterm -hold -e"/>
         <node pkg="miro_teleop" type="command_logic" name="command_logic" launch-prefix="xterm -hold -e"/>
         <node pkg="miro_teleop" type="robot_controller" name="robot_controller" launch-prefix="xterm -hold -e"/>
-	<include file="$(find mocap_optitrack)/launch/mocap.launch"/>
 </launch>

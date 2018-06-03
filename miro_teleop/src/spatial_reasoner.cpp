@@ -6,9 +6,9 @@
 
 /* Definitions */
 #define PI 3.14159
-#define HSIZE 400 // Horizontal map size (in cm)
-#define VSIZE 400 // Vertical map size (in cm)
-#define RES 40 // Grid resolution
+#define HSIZE 300 // Horizontal map size (in cm)
+#define VSIZE 300 // Vertical map size (in cm)
+#define RES 30 // Grid resolution
 
 /**
  * Spatial Reasoner Service function.
@@ -33,8 +33,8 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	double xr = req.center.x;
 	double yr = req.center.y;
 	/* Obstacle dimensions obtained as well */
-	double a = req.dimensions[0].data;
-	double b = req.dimensions[1].data;
+	double a = req.dimx.data;
+	double b = req.dimy.data;
 	double dxy = a*a+b*b; // Parameter for the 'near' relation
 	/* User orientation angle */
 	double u_ang = req.user.theta;
@@ -70,7 +70,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	   	{
 			/* Map indices to actual location on the map */
 			xp = HSIZE/double(2*RES)+HSIZE*(x/double(RES))-HSIZE/2;
-			yp = VSIZE/double(2*RES)+VSIZE*(y/double(RES))-VSIZE/2;
+			yp = VSIZE/double(2*RES)+VSIZE*((RES-y-1)/double(RES))-VSIZE/2;
 			/* If P is inside the obstacle, pertinences are null */
 			if((xp>(xr-a/2))&&(xp<(xr+a/2))&&(yp>(yr-b/2))&&(yp<(yr+b/2)))
         		M[x+y*RES].data=0;

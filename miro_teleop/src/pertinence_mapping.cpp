@@ -5,9 +5,9 @@
 #include <cmath>
 
 /* Constants */
-#define HSIZE 400 // Horizontal map size (in cm)
-#define VSIZE 400 // Vertical map size (in cm)
-#define RES 40 // Grid resolution
+#define HSIZE 300 // Horizontal map size (in cm)
+#define VSIZE 300 // Vertical map size (in cm)
+#define RES 30 // Grid resolution
 
 /**
  * Pertinence Mapping Service function.
