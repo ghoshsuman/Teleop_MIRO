@@ -35,7 +35,9 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	/* Obstacle dimensions obtained as well */
 	double a = req.dimx.data;
 	double b = req.dimy.data;
-	double dxy = a*a+b*b; // Parameter for the 'near' relation
+	
+	double var = (HSIZE/3)*(HSIZE/3); // Parameter for the 'near' relation
+
 	/* User orientation angle */
 	double u_ang = req.user.theta;
 
@@ -47,8 +49,8 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 
 	/* Obtain desired relation tag */
 	int dir = req.relationship.data; 
-	double c_ang = cos(dir*PI/2-u_ang);
-    double s_ang = sin(dir*PI/2-u_ang);
+	double c_ang = cos(dir*PI/2+u_ang);
+    double s_ang = sin(dir*PI/2+u_ang);
 
 	/* Set qualifier */
 	double q;
@@ -80,30 +82,32 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
                	beta_min = PI/2; // Initial value of beta
                	dist_min = 1000; // Initial value of distance
                                
-				/* For every element of the object calculate */
-				for(int i=0;i<RES;i++)
+		/* For every element of the object calculate */
+		for(int i=0;i<RES;i++)
                 {
                 	for(int j=0;j<RES;j++)
-                    {
-						// Compute beta and dist
-                        xq = xr-a/2+a*(i/double(RES));
-                        yq = yr-b/2+b*(j/double(RES));
-                        xv = xp-xq;
-                        yv = yp-yq;
-                        dist = sqrt(xv*xv+yv*yv);
-                        if(dist==0) beta=0;
-                        else beta = acos((xv*c_ang+yv*s_ang)/dist);
-                        
-						// Find minimum values
-						if(beta<beta_min) beta_min = beta;
-                        if(dist<dist_min) dist_min = dist;
+                    	{
+				// Compute beta and dist
+                        	xq = xr-a/2+a*(i/double(RES));
+                        	yq = yr-b/2+b*(j/double(RES));
+				if(s_ang*(yq-yr)>=-c_ang*(xq-xr))    
+				{                    
+					xv = xp-xq;
+		                	yv = yp-yq;
+		                	dist = sqrt(xv*xv+yv*yv);
+		                	if(dist==0) beta=0;
+		                	else beta = acos((xv*c_ang+yv*s_ang)/dist);		            
+					// Find minimum values
+					if(beta<beta_min) beta_min = beta;
+		                	if(dist<dist_min) dist_min = dist;
+				}
                    	}
             	}
 				/* Update matrices with minimum pertinences */
                 if(dir<4) 
 					M[x+y*RES].data = pow(fmax(0,1.0-(2.0*beta_min/PI)),q);
                 else 
-					M[x+y*RES].data = pow(exp(-pow(dist_min,2.0)/(2*dxy)),q);
+					M[x+y*RES].data = pow(exp(-pow(dist_min,2.0)/(2*var)),q);
 			}
 	   	}
 	}

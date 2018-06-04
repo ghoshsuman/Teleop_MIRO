@@ -3,9 +3,17 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <math.h>
 #include <iostream>
+#include "tf/tf.h"
+#include "tf/transform_datatypes.h"
+
+#define H 0 // Relative height with respect to ground
+#define HSIZE 300 // Horizontal map size (in cm)
+#define VSIZE 300 // Vertical map size (in cm)
+
 
 geometry_msgs::Point p1, p0;
 geometry_msgs::PoseStamped stablePose;
+geometry_msgs::PointStamped target;
 	
 // Frequency (Motion capture is 120Hz) - Changes detection
 int frequency = 30;
@@ -39,15 +47,61 @@ void poseCallback(const geometry_msgs::PoseStampedPtr& msg){
 			if(!pub_flag && distance > 3*d_treshold){
 				pub_flag = true;
 			}
-			
-			ROS_INFO("Distance: %f, tag: %d",distance,pub_flag);
 		
 			// Under this threshold the arm is considered stationary and the message could be published
-			if(distance < d_treshold && pub_flag){							
+			if(distance < d_treshold && pub_flag)
+			{							
 				stablePose = *msg;
-				// Publishing of a Joints msg 
-				ROS_INFO("Stable pointing found");
-				pub.publish(stablePose);			
+
+				/* Obtain body position */
+				geometry_msgs::Point position;
+				position.x = 100*stablePose.pose.position.x;
+				position.y = 100*stablePose.pose.position.y;
+
+				/* Initial orientation reference (assuming alignment with x axis) */
+				tf::Vector3 reference(1,0,0);
+
+				/* Convert from quaternion to rotated vector representation */
+				tf::Quaternion rotation;
+				quaternionMsgToTF(stablePose.pose.orientation, rotation);
+				tf::Vector3 direction = tf::quatRotate(rotation, reference);
+
+				ROS_INFO("Quaternion received: (%3.2f, %3.2f, %3.2f, %3.2f)",
+					stablePose.pose.orientation.x,
+					stablePose.pose.orientation.y,
+					stablePose.pose.orientation.z,
+					stablePose.pose.orientation.w);
+
+				ROS_INFO("Position: (%3.2f, %3.2f, %3.2f)", 
+							position.x, position.y, position.z);
+				ROS_INFO("Direction: (%3.2f, %3.2f, %3.2f)",
+							direction.x(), direction.y(), direction.z());
+
+				/* Check whether user is pointing upwards */
+				if(direction.z() > 0)
+				{
+					ROS_INFO("Invalid gesture");
+				}
+				else
+				{
+					/* If not, find target position in the x-y plane */
+
+					double a = -(position.z-H)/(direction.z());
+					target.point.x = position.x + a*(direction.x());
+					target.point.y = position.y + a*(direction.y());
+
+
+					if(std::isfinite(target.point.x) && std::isfinite(target.point.y) && 
+							target.point.x > -HSIZE/2 && target.point.x < HSIZE/2 && 
+							target.point.y > -VSIZE/2 && target.point.y < VSIZE/2)
+					{
+					
+						// Publishing of a Joints msg 
+						ROS_INFO("Stable pointing found at (%f,%f)",target.point.x,target.point.y);
+						target.header.stamp = ros::Time::now();
+						pub.publish(target);			
+					}
+				}
 				pub_flag = false;
 			}
   		}
@@ -66,7 +120,7 @@ int main( int argc, char** argv )
 	p1.z = 200;
 	p0 = p1;
 	
-	pub = node.advertise<geometry_msgs::PoseStamped>("stable_pose", 5);
+	pub = node.advertise<geometry_msgs::PointStamped>("stable_gndpose", 5);
 	
 	// Rate
 	ros::Rate r(frequency);

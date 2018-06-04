@@ -7,12 +7,32 @@
 #include "geometry_msgs/Twist.h"
 #include <vector>
 #include <cmath>
+#include <sstream>
+#include <fstream>
 
 /* Global variables */
 bool enable = false;  // Controller status flag
 std::vector<geometry_msgs::Vector3> path; // Trajectory array
 geometry_msgs::Pose2D robot; // Robot position
 geometry_msgs::Pose2D gesture; // Gesture position
+
+const std::string getData(){
+	std::time_t t = std::time(NULL);
+	char mbstr[20];
+	std::strftime(mbstr, sizeof(mbstr), "%Y-%m-%d_%H.%M.%S", std::localtime(&t));
+	std::string currentDate(mbstr);
+	return currentDate;
+}
+
+// For logging purposes - function to write to file a single string
+std::string printPath = "robotcontroller_" + getData() + ".log";
+void writeStrToFile( const std::string &toWrite){
+        std::string formattedTime = getData();
+	std::ofstream file;
+	file.open(printPath.c_str(), std::ofstream::out | std::ofstream::app);
+        file << formattedTime << ": " << toWrite << "\n";
+	file.close();
+}
 
 /** 
  * Subscriber callback function.
@@ -26,6 +46,14 @@ void getPoint(const miro_teleop::Path::ConstPtr& points)
 	ROS_INFO("Received new path");
 	for(int i=0;i< points->path.size();i++)
 		path.push_back(points->path[i]);
+	for(int i=0;i< points->path.size();i++)
+	{	
+		std::stringstream ss;
+		ss << "\nPath point "<<i<<" : "<< path[i].x << ", "<<path[i].y;
+		std::string sout = ss.str();		
+		writeStrToFile(sout);
+		ROS_INFO("Path point %d: %f, %f,", i, path[i].x, path[i].y);
+	}
 }
 
 /** 
@@ -105,8 +133,8 @@ int main(int argc, char **argv)
 	double ktheta = 1; // Angular control gain
 	double vr, vtheta; // Desired linear and angular velocities
 	miro_msgs::platform_control cmd_vel; // Message to be published 
-	int color; // Corresponding colors
-	double tol = 20.0;  // Displacement tolerance (in cm)
+	int color, color_temp; // Corresponding colors
+	double tol = 5.0;  // Displacement tolerance (in cm)
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "robot_controller");
@@ -134,8 +162,9 @@ int main(int argc, char **argv)
 	while (ros::ok())
 	{
 		/* Get color from parameter server (default is -1 - no color) */
-  		n.param("/color_key", color, -1);
-		ROS_INFO("Color: %d", color);
+  		n.param("/color_key", color_temp, -1);
+		if(color_temp!=color) ROS_INFO("Color: %d", color_temp);
+		color = color_temp;
 
 		/* Perform control only with flag enabled */
 		if(enable)

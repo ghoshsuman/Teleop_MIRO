@@ -12,8 +12,9 @@
 #define HSIZE 300 // Horizontal map size (in cm)
 #define VSIZE 300 // Vertical map size (in cm)
 #define RES 30 // Grid resolution
-#define PERT_THRESH 0.5 // Minimum acceptable output pertinence
-#define LIMIT 1600 // Limit simulation rounds (timeout constraint)
+#define PERT_THRESH 0.9 
+#define MIN_THRESH 0.5 // Minimum acceptable output pertinence
+#define LIMIT 2000 // Limit simulation rounds (timeout constraint)
 
 /** 
  * Method to quantize the coordinates of a point to indexes of a discretized 
@@ -55,17 +56,18 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
 
     	// Obtain input request data
     	std_msgs::Float64 landscape[RES*RES];
-	float norm_val = 0.0;
+	//float norm_val = 0.0;
     	for(int i=0;i<req.landscape.size();i++)
 	{
 		landscape[i].data = req.landscape[i].data;
-		if(landscape[i].data > norm_val) norm_val = landscape[i].data;
+		//if(landscape[i].data > norm_val) norm_val = landscape[i].data;
 	}
 
-	/* Normalize data received */
+	/* Normalize data received 
 	if(norm_val > 0)
     		for(int i=0;i<RES*RES;i++)
 			landscape[i].data = landscape[i].data/norm_val;
+	*/
 
     	boost::mt19937 *rng = new boost::mt19937();
     	rng->seed(time(NULL));
@@ -77,8 +79,8 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
     
 	while(max_obj<PERT_THRESH)
 	{
-	      	for (int i = 1; i <= iters; i++) 
-		{
+	      	//for (int i = 1; i <= iters && max_obj<PERT_THRESH; i++) 
+		//{
 			rx=dx();
 			ry=dx();
 			std::cout<<"Random point generated at ("<<rx<<","<<ry<<") ";
@@ -102,15 +104,19 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
 		    			max_y=ry;
 		  		}
 			}
-	      	}
+	      	//}
 	      	count++;
 	      	if(count>=LIMIT)
 	      	{
 	       		ROS_INFO("Timeout: maximum number of rounds exceeded");
-	       		// Return out-of-bound numbers as a timeout flag
-			res.goal.x = 2*HSIZE;
-			res.goal.y = 2*VSIZE;
-	       		return true;
+	       		// Return invalid numbers as a timeout flag
+			if(max_obj<MIN_THRESH)
+			{
+				max_x = nan("");
+				max_y = nan("");
+				max_obj = nan("");
+			}
+			break;
 	      	}
    	}
 

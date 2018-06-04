@@ -1,6 +1,7 @@
 <launch>
 	<include file="$(find mocap_optitrack)/launch/mocap.launch"/>
 	<include file="$(find speech_interaction)/launch/speech_adapter.launch"/>
+	<node pkg="miro_teleop" type="tracker_node" name="tracker_node" launch-prefix="xterm -hold -e"/>
         <node pkg="miro_teleop" type="gesture_processing_server" name="gesture_processing_server" launch-prefix="xterm -hold -e"/>
         <node pkg="miro_teleop" type="pertinence_mapping_server" name="pertinence_mapping_server" launch-prefix="xterm -hold -e"/>
         <node pkg="miro_teleop" type="spatial_reasoning_server" name="spatial_reasoning_server" launch-prefix="xterm -hold -e"/>
