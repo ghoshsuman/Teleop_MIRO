@@ -6,14 +6,13 @@
 #include "tf/tf.h"
 #include "tf/transform_datatypes.h"
 
-#define H 0 // Relative height with respect to ground
-#define HSIZE 300 // Horizontal map size (in cm)
-#define VSIZE 300 // Vertical map size (in cm)
+#define H 80 // Relative height with respect to ground (in cm)
+#define HSIZE 260 // Horizontal map size (in cm)
+#define VSIZE 260 // Vertical map size (in cm)
 
-
-geometry_msgs::Point p1, p0;
-geometry_msgs::PoseStamped stablePose;
-geometry_msgs::PointStamped target;
+geometry_msgs::Point p1, p0; // Default and actual position of gesture body
+geometry_msgs::PoseStamped stablePose; // Stable pose found
+geometry_msgs::PointStamped target; // Target in the x-y plane
 	
 // Frequency (Motion capture is 120Hz) - Changes detection
 int frequency = 30;
@@ -66,6 +65,8 @@ void poseCallback(const geometry_msgs::PoseStampedPtr& msg){
 				quaternionMsgToTF(stablePose.pose.orientation, rotation);
 				tf::Vector3 direction = tf::quatRotate(rotation, reference);
 
+
+				/* [Optional - DEBUG] Print orientation, position and direction obtained 
 				ROS_INFO("Quaternion received: (%3.2f, %3.2f, %3.2f, %3.2f)",
 					stablePose.pose.orientation.x,
 					stablePose.pose.orientation.y,
@@ -76,33 +77,31 @@ void poseCallback(const geometry_msgs::PoseStampedPtr& msg){
 							position.x, position.y, position.z);
 				ROS_INFO("Direction: (%3.2f, %3.2f, %3.2f)",
 							direction.x(), direction.y(), direction.z());
+				*/
 
-				/* Check whether user is pointing upwards */
-				if(direction.z() > 0)
-				{
-					ROS_INFO("Invalid gesture");
-				}
+
+				// Check whether user is pointing upwards 
+				if(direction.z() > 0) ROS_INFO("Invalid gesture");
 				else
 				{
-					/* If not, find target position in the x-y plane */
-
+					// If not, find target position in the x-y plane 
 					double a = -(position.z-H)/(direction.z());
 					target.point.x = position.x + a*(direction.x());
 					target.point.y = position.y + a*(direction.y());
 
-
+					// Verify is position found in the plane is valid
 					if(std::isfinite(target.point.x) && std::isfinite(target.point.y) && 
 							target.point.x > -HSIZE/2 && target.point.x < HSIZE/2 && 
 							target.point.y > -VSIZE/2 && target.point.y < VSIZE/2)
 					{
 					
-						// Publishing of a Joints msg 
-						ROS_INFO("Stable pointing found at (%f,%f)",target.point.x,target.point.y);
+						// If so, publish point
+						ROS_INFO("Publishing stable pointing found at (%f,%f)", target.point.x, target.point.y);
 						target.header.stamp = ros::Time::now();
 						pub.publish(target);			
 					}
 				}
-				pub_flag = false;
+				pub_flag = false; // Reset flag
 			}
   		}
   	}
@@ -114,21 +113,22 @@ int main( int argc, char** argv )
 {
 	ros::init(argc, argv, "tracker_node");
 	ros::NodeHandle node;
-	// Initial point position to be set when it is undefined
-	p1.x = 0;
-	p1.y = 0;
-	p1.z = 200;
+	// Initial point position to be set when it is undefined (nan)
+	p1.x = nan("");
+	p1.y = nan("");
+	p1.z = nan("");
 	p0 = p1;
 	
-	pub = node.advertise<geometry_msgs::PointStamped>("stable_gndpose", 5);
+	pub = node.advertise<geometry_msgs::PointStamped>("/stable_gndpose", 5);
 	
 	// Rate
 	ros::Rate r(frequency);
 	
 	// Subscriber declaration
-	ros::Subscriber sub 
-		= node.subscribe("Gesture/pose", 10, &poseCallback);
+	ros::Subscriber sub = node.subscribe("Gesture/pose", 10, &poseCallback);
 	
+	ROS_INFO("Tracker node active");
+
 	while(ros::ok())
 	{
 		r.sleep();

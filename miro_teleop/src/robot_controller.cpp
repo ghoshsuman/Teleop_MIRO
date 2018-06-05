@@ -10,6 +10,8 @@
 #include <sstream>
 #include <fstream>
 
+#define GOAL_SIZE 20
+
 /* Global variables */
 bool enable = false;  // Controller status flag
 std::vector<geometry_msgs::Vector3> path; // Trajectory array
@@ -73,6 +75,12 @@ void getStatus(const std_msgs::Bool::ConstPtr& status)
  */
 void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& pose)
 {
+	// If data from mocap is lost, stop robot
+	if(robot.x==100*pose->x && robot.y==100*pose->y)
+	{	
+		enable = false;
+	}
+
 	robot.x = 100*pose->x; //in cm
 	robot.y = 100*pose->y; //in cm
 	robot.theta = pose->theta;
@@ -134,7 +142,7 @@ int main(int argc, char **argv)
 	double vr, vtheta; // Desired linear and angular velocities
 	miro_msgs::platform_control cmd_vel; // Message to be published 
 	int color, color_temp; // Corresponding colors
-	double tol = 5.0;  // Displacement tolerance (in cm)
+	double tol = GOAL_SIZE;  // Displacement tolerance (in cm)
 
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "robot_controller");
@@ -196,7 +204,7 @@ int main(int argc, char **argv)
 			{
 
 				/* Obtain reference speeds (linear/angular) */
-				vr = 200*cos(dtheta); // Max speed: 400 cm/s
+                                vr = 400*cos(dtheta); // Max speed: 400 cm/s
 				vtheta = ktheta*dtheta; // P angular control
 
 				/* Compose message and publish */

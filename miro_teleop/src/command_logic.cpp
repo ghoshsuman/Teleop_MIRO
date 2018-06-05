@@ -2,25 +2,21 @@
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/Float64.h"
-#include "std_msgs/UInt8.h"
-#include "std_msgs/String.h"
-#include "geometry_msgs/Pose.h"
-#include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/PointStamped.h"
 #include "geometry_msgs/Pose2D.h"
 #include "geometry_msgs/Vector3.h"
-#include "miro_teleop/GestureProcessing.h"
 #include "miro_teleop/SpatialReasoner.h"
 #include "miro_teleop/PertinenceMapping.h"
 #include "miro_teleop/MonteCarlo.h"
 #include "miro_teleop/Path.h"
 #include "miro_msgs/platform_control.h"
 #include "ros_cagg_msgs/cagg_tags.h"
-#include "ros_cagg_msgs/cagg_tag.h"
 #include "rrtstar_msgs/rrtStarSRV.h"
 #include "rrtstar_msgs/Region.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <highgui.h>
+#include <opencv/cv.hpp>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -29,31 +25,30 @@
 #include <vector>
 
 /* Definitions */
-#define HSIZE 300 // Horizontal map size (in cm)
-#define VSIZE 300 // Vertical map size (in cm)
-#define RES 30 // Grid resolution
-#define numObs 2 // Number of objects (plus user)
+#define HSIZE 260 // Horizontal map size (in cm)
+#define VSIZE 260 // Vertical map size (in cm)
+#define RES 26 // Grid resolution
+#define numObs 4 // Number of objects
+#define GOAL_SIZE 5
+#define PI 3.14159
 
 /* Global variables */
-geometry_msgs::Pose2D robot, user; // Robot and user positions from mocap
-geometry_msgs::Pose2D gesture; // Gesture information from mocap
+geometry_msgs::Pose2D robot, user, gesture; // Robot, user and (stable) gesture positions from mocap
 std::vector<geometry_msgs::Pose2D> obstacles(numObs+1); //Vector of obstacles
 std::vector<geometry_msgs::Point> obsdim(numObs+1); // Vector of object dimensions (populated later manually)
 std::vector<std::string> command_tag; // Command tags from CAGG
 std::string command; // Command associated
 ros_cagg_msgs::cagg_tags cmd; // Command tag received from speech recognition
-// Relations and qualifiers - Please maintain order
-std::string relationships[5] = {"RIGHT", "BEHIND", "LEFT", "FRONT", "NEAR"};
-std::string qualifiers[3] = {"SLIGHTLY", "NORMAL", "EXACTLY"};
-//int taglength = -1; // Size of tags received from CAGG
-bool useGesture = false;
-double time_threshold = 15; // Max allowed time between gesture and speech
-ros::Time lock_time, cmd_time, gesture_time; // Time stamps of the command and stable gesture
-bool cmd_received = false; // Auxiliary flag to command
-bool lock_param = false; // Auxiliary flag to prevent parameter change
+std::string relationships[5] = {"RIGHT", "BEHIND", "LEFT", "FRONT", "NEAR"}; // Relations - maintain order
+std::string qualifiers[3] = {"SLIGHTLY", "NORMAL", "EXACTLY"}; // Qualifiers - maintain order
+ros::Time lock_time, cmd_time, gesture_time; // Time stamps associated with flags
+bool useGesture = false, cmd_received = false, lock_param = false, kernel_initialized = false; // Auxiliary flags
+double time_threshold = 8; // Max allowed time between gesture and speech (in sec.)
 
-// Returns the current date and time formatted as %Y-%m-%d_%H.%M.%S
+
+/* Logging functions */
 const std::string getData(){
+	// Returns the current date and time formatted as %Y-%m-%d_%H.%M.%S
 	std::time_t t = std::time(NULL);
 	char mbstr[20];
 	std::strftime(mbstr, sizeof(mbstr), "%Y-%m-%d_%H.%M.%S", std::localtime(&t));
@@ -61,24 +56,14 @@ const std::string getData(){
 	return currentDate;
 }
 
-// For logging purposes - function to write to file a single string
-std::string printPath = "commandlogic_" + getData() + ".log";
+std::string printPath = "commandlogic_" + getData() + ".log"; // Std path to logfile
 void writeStrToFile( const std::string &toWrite){
+	// Function to write to file a single string
         std::string formattedTime = getData();
 	std::ofstream file;
 	file.open(printPath.c_str(), std::ofstream::out | std::ofstream::app);
         file << formattedTime << ": " << toWrite << "\n";
 	file.close();
-}
-
-/* Auxiliar function to obtain object information from mocap */
-void addToObsList(const geometry_msgs::Pose2D::ConstPtr& groundpose, int i)
-{
-	geometry_msgs::Pose2D obs;
-	obs.x = 100*groundpose->x;
-	obs.y = 100*groundpose->y;
-	obs.theta = groundpose->theta;
-	obstacles[i-1]=obs;
 }
 
 /**
@@ -102,19 +87,30 @@ void getCmd(const ros_cagg_msgs::cagg_tags::ConstPtr& msg)
 		command = command_tag[0];
 		ROS_INFO("Interpreted command: %s", command.c_str());
 		writeStrToFile(command.c_str());
-		writeStrToFile("\n");
-	 	
+		writeStrToFile("\n");	
 	}
 	cmd_time = msg->header.stamp;
 	// Detect when to use/ignore the gesture data and set useGesture accordingly
 	ROS_INFO("Time between gesture and command: %f",abs((gesture_time-cmd_time).toSec()));
 	useGesture = (abs((gesture_time-cmd_time).toSec())<time_threshold);
-	cmd_received = true;
+	cmd_received = true; // Set flag to true
+}
+
+
+/* Auxiliar function to obtain object information from mocap */
+void addToObsList(const geometry_msgs::Pose2D::ConstPtr& groundpose, int i)
+{
+	geometry_msgs::Pose2D obs;
+	obs.x = 100*groundpose->x;
+	obs.y = 100*groundpose->y;
+	obs.theta = groundpose->theta;
+	obstacles[i-1] = obs;
+	//ROS_INFO("FROM MOCAP Obj %d position obtained (%f, %f)",i,obstacles[i-1].x,obstacles[i-1].y);
 }
 
 /**
  * Subscriber callback function.
- * Obtains current robot pose from Motion Capture node.
+ * Obtains current robot 2D pose from Motion Capture node.
  */
 void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 {
@@ -125,10 +121,11 @@ void getRobotPose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 
 /**
  * Subscriber callback function.
- * Obtains current user shoulder pose from Motion Capture node.
+ * Obtains current user body 2D pose from Motion Capture node.
  */
 void getUserPose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 {
+	// NOTE: Conversion to [cm] is done on addToObsList
 	user.x = 100*groundpose->x;
 	user.y = 100*groundpose->y;
 	user.theta = groundpose->theta;
@@ -137,10 +134,11 @@ void getUserPose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 
 /**
  * Subscriber callback function.
- * Obtains current gesture pose from tracker node.
+ * Obtains current gesture position from tracker node.
  */
 void getGesture(const geometry_msgs::PointStamped::ConstPtr& gest)
 {
+	// NOTE: Tracker already gives data in [cm]
 	gesture.x = gest->point.x;
 	gesture.y = gest->point.y;
 	gesture_time = gest->header.stamp;
@@ -176,21 +174,96 @@ void getObstacle6Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 	addToObsList(groundpose, 6);
 }
 
+
+void plotKernel(const char* name, float matrix[][RES])
+{
+        int x, y, user_x, user_y, dest_x_img, dest_y_img;
+        float dest_x_real, dest_y_real, L=50;
+        // Create image and associate it to matrix
+        cv::Mat img, fin_img;
+        cv::Mat map(RES, RES, CV_32F, matrix);
+        map.convertTo(img, CV_8UC1);
+        std::vector<cv::Mat> channels;
+        //cv::Mat g = cv::Mat::zeros(cv::Size(img.rows, img.cols), CV_8UC1);
+        channels.push_back(img);
+        channels.push_back(img);
+        channels.push_back(img);
+        cv::merge(channels, fin_img);
+
+        //Plot user orientation
+        user_x = (int)((user.x-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES));
+        user_y = RES-(int)((user.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+        dest_x_real=user.x+L*cos(user.theta+PI/2);
+        dest_y_real=user.y+L*sin(user.theta+PI/2);
+        dest_x_img=(int)((dest_x_real-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES));
+        dest_y_img=RES-(int)((dest_y_real-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+        cv::arrowedLine(fin_img, cv::Point(user_x, user_y),cv::Point(dest_x_img, dest_y_img), CV_RGB(255, 0, 0), 1, 8, 0, 0.2);
+
+        if(false)
+        {
+                // Plot gesture as a black point
+                x = (int)((gesture.x-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES));
+                y = RES-(int)((gesture.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+                fin_img.at<cv::Vec3b>(cv::Point(x,y)) = cv::Vec3b(255,255,0);
+		cv::namedWindow(name, cv::WINDOW_NORMAL);
+		cv::imshow(name, fin_img);
+		cv::waitKey(0);
+        }
+	else
+	{
+		// Display image
+		cv::namedWindow(name, cv::WINDOW_NORMAL);
+		cv::imshow(name, fin_img);
+		cv::waitKey(0);
+	}
+}
+
+
 /**
  * OpenCV Plot function.
  * Attaches matrix information to an img variable and displays it on screen.
- */
- 
-void plot(const char* name, float matrix[][RES])
-{
-	cv::Mat img;
+ */ 
+void plotPertinence(const char* name, float matrix[][RES], bool plotGoalandPath, geometry_msgs::Pose2D goal, miro_teleop::Path rrtPath)
+{	
+        int x, y, user_x, user_y, dest_x_img, dest_y_img;
+        float dest_x_real, dest_y_real, L=50;
+	// Create image and associate it to matrix
+	cv::Mat img, fin_img;
 	cv::Mat map(RES, RES, CV_32F, matrix);
 	map.convertTo(img, CV_8UC1);
+	std::vector<cv::Mat> channels;
+    	//cv::Mat g = cv::Mat::zeros(cv::Size(img.rows, img.cols), CV_8UC1);
+    	channels.push_back(img);
+    	channels.push_back(img);
+    	channels.push_back(img);
+	cv::merge(channels, fin_img);
+
+        //Plot user orientation
+        user_x = (int)((user.x-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES));
+        user_y = RES-(int)((user.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+        dest_x_real=user.x+L*cos(user.theta+PI/2);
+        dest_y_real=user.y+L*sin(user.theta+PI/2);
+        dest_x_img=(int)((dest_x_real-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES));
+        dest_y_img=RES-(int)((dest_y_real-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+        cv::arrowedLine(fin_img, cv::Point(user_x, user_y),cv::Point(dest_x_img, dest_y_img), CV_RGB(255, 255, 0), 1, 8, 0, 0.2);
+
+
+	if(plotGoalandPath)
+	{
+                for (int j=0; j<rrtPath.path.size(); j++)
+                {
+                    x = (int)((rrtPath.path[j].x-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES));
+                    y = RES-(int)((rrtPath.path[j].y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+                    fin_img.at<cv::Vec3b>(cv::Point(x,y)) = cv::Vec3b(0,255,0);
+                }
+                x = (int)((goal.x-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES));
+                y = RES-(int)((goal.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+		fin_img.at<cv::Vec3b>(cv::Point(x,y)) = cv::Vec3b(0,0,255);
+	}
+
+	// Display image
 	cv::namedWindow(name, cv::WINDOW_NORMAL);
-	int x = (int)((gesture.x-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES));
-	int y = RES-(int)((gesture.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
-	img.at<uchar>(cv::Point(x,y)) = 0;
-	cv::imshow(name, img);
+	cv::imshow(name, fin_img);
 	cv::waitKey(0);
 }
 
@@ -211,7 +284,7 @@ int state, std_msgs::Float64* landscape)
 		}
 		// Display landscapes (requires opencv package)
 		ROS_INFO("Landscape generated succesfully");
-		plot("Relation Kernel", spmat0);
+                plotKernel("Relation Kernel", spmat0);
 	}
 	else
 	{
@@ -234,7 +307,7 @@ int state, std_msgs::Float64* landscape)
 		for (int i=0; i<RES*RES; i++)
 		{
 			landscape[i].data = srv_pert.response.MOut[i].data;
-			pertmatrix[i/RES][i%RES] = landscape[i].data*255;
+			//pertmatrix[i/RES][i%RES] = landscape[i].data*255;
 		}
 		// Verify whether the output is valid
 		if(!std::isfinite(landscape[0].data))
@@ -245,9 +318,7 @@ int state, std_msgs::Float64* landscape)
 		else
 		{
 			state = 2;
-			ROS_INFO("Gesture based landscape mapped");
-			// Plot using opencv
-			plot("Mapped landscape", pertmatrix);
+			ROS_INFO("Landscape mapped");
 		}
 	}
 	else
@@ -259,7 +330,7 @@ int state, std_msgs::Float64* landscape)
 
 }
 
-// Function to verify if some point (x,y) is inside any object from a given list
+/* Function to verify if some point (x,y) is inside any object from a given list */
 bool isIn(int i, int j)
 {
 	double cx, cy, dx, dy, x, y;
@@ -277,30 +348,39 @@ bool isIn(int i, int j)
 	return false;
 }
 
-
-//Initialize landscape[] by blacking out all obstacles in a white background
+/* Initialize landscape[] by blacking out all obstacles in a white background */
 void initKernel(std_msgs::Float64* landscape)
 {
-for (int i=0; i<numObs+1; i++)
-{
-ROS_INFO("\nObstacles ... %d: %f, %f",i,obstacles[i].x, obstacles[i].y);
-}
+	for (int i=0; i<numObs+1; i++) // DEBUG
+	{
+		ROS_INFO("\nObstacles ... %d: (%f, %f)",i,obstacles[i].x, obstacles[i].y);
+	}
+
 	for (int i=0; i<RES; i++)
 		for (int j=0; j<RES; j++)
 			// If point is not inside any obstacle initial value is 1
 			// i = row (y); j = column (x)
 			if(!isIn(i,j)) landscape[i*RES+j].data = 1;
+	kernel_initialized = true;
 }
 
+// Auxiliary function to check if object data was sent by mocap
+bool obstaclesPlaced()
+{
+	for (int k = 0; k<numObs+1; k++)
+	{
+		if(isnan(obstacles[k].x) || isnan(obstacles[k].y)) 
+			return false;
+	}
+	return true;
+}
 
-/* MAIN FUNCTION */
+/* Main function */
 
 int main(int argc, char **argv)
 {
 
-
 	/* Definitions */
-	geometry_msgs::Pose2D target, goal; // Gesture target and goal positions
 	geometry_msgs::Vector3 init; // Initial position for the path planner
 	miro_teleop::Path rrtPath; // Trajectory to be published
 	std_msgs::Float64 landscape[RES*RES]; // Final landscape sent to MonteCarlo, updated after each command
@@ -308,6 +388,7 @@ int main(int argc, char **argv)
 	rrtstar_msgs::Region workspace, goal_reg; // For RRT* algorithm
 	double pathsize; // Since RRT* trajectory size is variable
 	int state = 0; // Control flag for the "look" command
+	geometry_msgs::Pose2D goal; // Goal position
 	
 	enable.data = false; // Robot control is initially off
 
@@ -315,11 +396,10 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "command_logic");
 	ros::NodeHandle n;
 
-	// Initialize timing variables
+	// Initialize time variables
 	lock_time = ros::Time::now(); 
 	cmd_time = ros::Time::now();  
-	gesture_time = ros::Time::now(); 
-
+	gesture_time = ros::Time(0); 
 
 	/* Initialize publishers and subscribers */
 	// Publishers to robot controller
@@ -339,13 +419,12 @@ int main(int argc, char **argv)
 	ros::Subscriber sub_obs5 = n.subscribe("Obstacle5/ground_pose", 1, getObstacle5Pose);
 	ros::Subscriber sub_obs6 = n.subscribe("Obstacle6/ground_pose", 1, getObstacle6Pose);
 
-	ros::Subscriber sub_gesture = n.subscribe("stable_gndpose", 1, getGesture);
+	// Subscriber from tracking node
+	ros::Subscriber sub_gesture = n.subscribe("/stable_gndpose", 1, getGesture);
 
 	/* Initialize service clients and handlers */
 	ros::ServiceClient cli_spat = n.serviceClient<miro_teleop::SpatialReasoner>("spatial_reasoner");
 	miro_teleop::SpatialReasoner srv_spat;
-	ros::ServiceClient cli_gest = n.serviceClient<miro_teleop::GestureProcessing>("gesture_processing");
-	miro_teleop::GestureProcessing srv_gest;
 	ros::ServiceClient cli_pert = n.serviceClient<miro_teleop::PertinenceMapping>("pertinence_mapper");
 	miro_teleop::PertinenceMapping srv_pert;
 	ros::ServiceClient cli_mont = n.serviceClient<miro_teleop::MonteCarlo>("monte_carlo");
@@ -365,22 +444,29 @@ int main(int argc, char **argv)
 	workspace.size_z = 0;
 	srv_rrts.request.WS = workspace; // RRT* request member
 
-	/* TODO Define custom obstacle dimesnions */
+	/* Initialize object variables */
 	for(int i=0; i<numObs+1; i++)
 	{
-		// Set some default values
+		// Set nan as default values
 		obstacles[i].x = nan("");
 		obstacles[i].y = nan("");
 		obstacles[i].theta = nan("");
-
-		obsdim[i].x=70;
-		obsdim[i].y=70;
+                // Define custom object dimesnions (already considering robot size)
+                obsdim[i].x=60;
+                obsdim[i].y=60;
 	}
-
-	ros::spinOnce(); // So that obstacle list is populated
-
+                //User dimensions (already considering robot size)
+		obsdim[numObs].x=30;
+		obsdim[numObs].y=30;
+	
+	//ros::spinOnce(); // So that obstacle list is populated
+	/*
 	// Initialize kernel
+	
+	ROS_INFO("Obstacle %d position obtained (%f, %f)",1,obstacles[0].x,obstacles[0].y);
 	initKernel(landscape);
+	ROS_INFO("Obstacle %d position obtained (%f, %f)",1,obstacles[0].x,obstacles[0].y);
+	*/
 
 	ROS_INFO("Command logic (master) node active");
 
@@ -399,285 +485,277 @@ int main(int argc, char **argv)
 	/* Main loop */
 	while(ros::ok())
 	{
-		int tagslength = cmd.cagg_tags.size();
-		
-
-		// We receive a list of relations at a time from Interpreter node
-		// Parse each relation to extract "object#", "relationship", "qualifier"
-		// Call spatial_reasoner once for each relation to generate one kernel each
-		// Call pertinence mapping once for each command to get final landscape
-		
-		// Timing control of the lights
-		if(lock_param && abs((lock_time-ros::Time::now()).toSec())>3) 
+		if(obstaclesPlaced())
 		{
-			lock_param = false;
-			n.setParam("/color_key", 2);
-		}
-		// Obtain command associated and corresponding tag length
-		if(cmd_received)
-		{
-			int firstTaglength = cmd.cagg_tags[0].cagg_tag.size();
+			int tagslength = cmd.cagg_tags.size();
 
-			ROS_INFO("firstTaglength: %d",firstTaglength);
-			if(firstTaglength == 0) 	// Command not understood - set color red (1)
+			// We receive a list of relations at a time from Interpreter node
+			// Parse each relation to extract "object#", "relationship", "qualifier"
+			// Call spatial_reasoner once for each relation to generate one kernel each
+			// Call pertinence mapping once for each command to get final landscape
+		
+			// Timing control of the lights
+			if(lock_param && abs((lock_time-ros::Time::now()).toSec())>3) 
 			{
-				if (!lock_param)
-				{ 
-					n.setParam("/color_key", 1);
-					lock_param = true;
-				}				
+				lock_param = false;
+				n.setParam("/color_key", 2);
+			}
+			// Obtain command associated and corresponding tag length
+			if(cmd_received)
+			{
+				int firstTaglength = cmd.cagg_tags[0].cagg_tag.size();
+
+				ROS_INFO("firstTaglength: %d",firstTaglength);
+				if(firstTaglength == 0) 	// Command not understood - set color red (1)
+				{
+					if (!lock_param)
+					{ 
+						n.setParam("/color_key", 1);
+						lock_param = true;
+					}				
+					// Lock for 3 sec
+					lock_time = ros::Time::now();
+				}
+				else // Command understood - set color blue (3)
+				{
+					if (!lock_param) n.setParam("/color_key", 3);
+				}
+				cmd_received = false; // Set flag to false
+			}
+		
+			// Work based on command received when callback is executed
+			// Reset: user not satisfied (aborted), Stop: user satisfied (done)
+			if(command.compare("RESET") == 0) // Stop robot, clear kernel
+			{
+				enable.data = false;
+				flag_pub.publish(enable);
+				initKernel(landscape); // Reinitialize kernel
+				n.setParam("/color_key", 5); // Set lights to purple (5)
 				// Lock for 3 sec
+				lock_param = true;
 				lock_time = ros::Time::now();
+				command = "";
 			}
-			else // Command understood - set color blue (3)
+			else if(command.compare("STOP") == 0) // Stop robot, clear kernel
 			{
-				if (!lock_param) n.setParam("/color_key", 3);
+				enable.data = false;
+				flag_pub.publish(enable);
+				initKernel(landscape); // Reinitialize kernel
+				n.setParam("/color_key", 6); // Set lights to white (6)
+				// Lock for 3 sec
+				lock_param = true;
+				lock_time = ros::Time::now();
+				command = "";
 			}
-			cmd_received = false;
-		}
-		
-		// Work based on command received when callback is executed
-		// Reset: user not satisfied (aborted), Stop: user satisfied (done)
-		if(command.compare("RESET") == 0) // Stop robot, clear kernel
-		{
-			enable.data = false;
-			flag_pub.publish(enable);
-			initKernel(landscape); // Reinitialize kernel
-			n.setParam("/color_key", 5); // Set lights to purple (5)
-			// Lock for 3 sec
-			lock_param = true;
-			lock_time = ros::Time::now();
-			command = "";
-		}
-		else if(command.compare("STOP") == 0) // Stop robot, clear kernel
-		{
-			enable.data = false;
-			flag_pub.publish(enable);
-			initKernel(landscape); // Reinitialize kernel
-			n.setParam("/color_key", 6); // Set lights to white (6)
-			// Lock for 3 sec
-			lock_param = true;
-			lock_time = ros::Time::now();
-			command = "";
-		}
-		else if(command.compare("GO") == 0 && tagslength > 1) // Failsafe condition check
-		{
-			enable.data = false;
-			flag_pub.publish(enable);
-			// Initial state
-			state=0;
-			
-			
-			// If a (meaningful) gesture is detected
-			ROS_INFO("%d", useGesture);
-                        if(useGesture) // TODO Rollback to useGesture
-			{	
-				ROS_INFO("Gesture detected");
-				writeStrToFile("Gesture detected\n");
-                                state = 1;
+			else if(command.compare("GO") == 0 && tagslength > 1) // Failsafe condition check
+			{
+				// Disable movement whenever a new command is issued
+				enable.data = false;
+				flag_pub.publish(enable);
+				
+				// If it is not initialized, initalize it
+				if(!kernel_initialized) initKernel(landscape);
 
-				/* Call gesture processing service
-				ROS_INFO("Calling Gesture Processing service");
-				 srv_gest.request.gesture = gesture;
-				if (cli_gest.call(srv_gest))
-				{
-					target = srv_gest.response.target;
-					// Verify if target is valid number
-					if(std::isfinite(target.x) && std::isfinite(target.y))
-					{
-						ROS_INFO("Target obtained: (%f,%f)", target.x, target.y);
-						state = 1;
-					}
-					else
-					{
-						ROS_INFO("Invalid target: please try again");
-					}
-					// Verify bound conditions
-					if(target.x < -HSIZE/2 || target.x > HSIZE/2 || target.y < -VSIZE/2 || target.y > VSIZE/2)
-					{
-						ROS_INFO("Target out of the bounds");
-						state = 0;
-					}
-				}
-				else
-				{
-					ROS_ERROR("Failed to call Gesture Processing");
-					return 1;
-				}
-				*/
+				// Initial state
+				state = 0;			
+			
+				// If a (stable) gesture is detected
+				ROS_INFO("%d", useGesture);
+		                if(useGesture)
+				{	
+					ROS_INFO("Valid gesture detected at (%f, %f)", gesture.x, gesture.y);
+					writeStrToFile("Gesture detected\n");
 
-				//Set inputs for spatial_reasoner
-				if(state==1)
-				{
 					srv_spat.request.center = gesture;
 					srv_spat.request.dimx.data = 1;
 					srv_spat.request.dimy.data = 1;
-					srv_spat.request.relationship.data = 4; //relation "near"
-                                        srv_spat.request.qualifier.data = 0;
+					srv_spat.request.relationship.data = 4; // Relation: "near"
+		                        srv_spat.request.qualifier.data = 0; // Qualifier: "slightly"
 					state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
-					if(state == -1)
-						return 1;
-				}
-				else state = 2;
+				
+					if(state == -1) return 1;
+					else state = 2;
 	
-				useGesture = false;
-			}
-
-			//We send data to spatial_reasoner even when gesture_processing fails
-			//Sending info to spatial_reasoner as per Interpreter tags
-			// Assuming tags in the form of
-			// [["go","quantifier","strictly"](Optional),["go","relation","right"],["go","object","1"]
-			int objid = atoi(cmd.cagg_tags[tagslength-1].cagg_tag[2].c_str());
-			ROS_INFO("Object id: %d",objid);
-			writeStrToFile("Object id: ");
-			writeStrToFile(cmd.cagg_tags[tagslength-1].cagg_tag[2].c_str());
-			srv_spat.request.center = obstacles[objid-1];
-			srv_spat.request.dimx.data = obsdim[objid-1].x;
-			srv_spat.request.dimy.data = obsdim[objid-1].y;
-			for (int i=0; i<5; i++)
-			{
-				if(relationships[i].compare(cmd.cagg_tags[tagslength-2].cagg_tag[2])==0)
-				{
-					srv_spat.request.relationship.data = i;
-					ROS_INFO("Relation found: %s",relationships[i].c_str());	
-					writeStrToFile("Relation found: ");
-					writeStrToFile(relationships[i].c_str());				
-					break;
+					useGesture = false;
 				}
-			}
-			if(tagslength>2)
-			{
-				for (int i=0; i<3; i++)
+
+				//We send data to spatial_reasoner even when gesture_processing fails
+				//Sending info to spatial_reasoner as per Interpreter tags
+				// Assuming tags in the form of
+				// [["go","quantifier","strictly"](Optional),["go","relation","right"],["go","object","1"]
+				int objid = atoi(cmd.cagg_tags[tagslength-1].cagg_tag[2].c_str());
+				ROS_INFO("Object id: %d",objid);
+				writeStrToFile("Object id: ");
+				writeStrToFile(cmd.cagg_tags[tagslength-1].cagg_tag[2].c_str());
+				srv_spat.request.center = obstacles[objid-1];
+				srv_spat.request.dimx.data = obsdim[objid-1].x;
+				srv_spat.request.dimy.data = obsdim[objid-1].y;
+				for (int i=0; i<5; i++)
 				{
-					if(qualifiers[i].compare(cmd.cagg_tags[tagslength-3].cagg_tag[2])==0)
+					if(relationships[i].compare(cmd.cagg_tags[tagslength-2].cagg_tag[2])==0)
 					{
-						srv_spat.request.qualifier.data = i;
-						ROS_INFO("Qualifier: %s",qualifiers[i].c_str());	
-						writeStrToFile("Qualifier: ");	
-						writeStrToFile(qualifiers[i].c_str());						
+						srv_spat.request.relationship.data = i;
+						ROS_INFO("Relation found: %s",relationships[i].c_str());	
+						writeStrToFile("Relation found: ");
+						writeStrToFile(relationships[i].c_str());				
 						break;
 					}
 				}
-			}
-
-			srv_spat.request.user = user;
-			state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
-			if(state == -1)
-				return 1;
-			ROS_INFO("Kernel generated successfully");
-			writeStrToFile("Kernel generated.\n");
-
-			if(state==2)
-			{
-				//Set input for Monte MonteCarlo
-				for (int i=0; i<RES*RES; i++)
-					srv_mont.request.landscape.push_back(landscape[i]);
-
-				//Call MonteCarlo
-				if (cli_mont.call(srv_mont))
+				if(tagslength>2)
 				{
-					goal = srv_mont.response.goal;
-					// Verify if goal returned is valid
-					if(isnan(goal.x) && isnan(goal.y))
+					for (int i=0; i<3; i++)
 					{
-						ROS_INFO("Invalid goal position");
-						state = 0;
+						if(qualifiers[i].compare(cmd.cagg_tags[tagslength-3].cagg_tag[2])==0)
+						{
+							srv_spat.request.qualifier.data = i;
+							ROS_INFO("Qualifier: %s",qualifiers[i].c_str());	
+							writeStrToFile("Qualifier: ");	
+							writeStrToFile(qualifiers[i].c_str());						
+							break;
+						}
+					}
+				}
+
+				srv_spat.request.user = user;
+				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
+				/*srv_spat.request.relationship.data = 4; // Adding near
+				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);*/
+
+				if(state == -1)
+					return 1;
+				ROS_INFO("Kernel generated successfully");
+				writeStrToFile("Kernel generated.\n");
+
+				if(state==2)
+				{
+					//Set input for Monte MonteCarlo
+					for (int i=0; i<RES*RES; i++)
+						srv_mont.request.landscape.push_back(landscape[i]);
+
+					//Call MonteCarlo
+					if (cli_mont.call(srv_mont))
+					{
+						goal = srv_mont.response.goal;
+						// Verify if goal returned is valid
+						if(isnan(goal.x) && isnan(goal.y))
+						{
+							ROS_INFO("Invalid goal position");
+							state = 0;
+						}
+						else
+						{
+							ROS_INFO("Goal obtained: (%f,%f)", goal.x, goal.y);
+							writeStrToFile("Goal obtained. ");
+							state = 3;
+						}
 					}
 					else
 					{
-						ROS_INFO("Goal obtained: (%f,%f)", goal.x, goal.y);
-						writeStrToFile("Goal obtained. ");
-						state = 3;
+						ROS_ERROR("Failed to call Monte Carlo service");
+						return 1;
 					}
+					srv_mont.request.landscape.clear();
 				}
-				else
-				{
-					ROS_ERROR("Failed to call Monte Carlo service");
-					return 1;
-				}
-				srv_mont.request.landscape.clear();
-			}
+				
 
-			// Finally, call RRT* server and publish path
-			if(state==3)
-			{
-				ROS_INFO("Calling RRT* Path Planner service");
-				srv_rrts.request.Obstacles.clear();
-				/* Assign the obstacle region for RRT* */
-				for (int i=0; i<numObs+1; i++)
+
+				// Finally, call RRT* server and publish path
+				if(state==3)
 				{
-					if(!isnan(obstacles[i].x) || !isnan(obstacles[i].y))
+					ROS_INFO("Calling RRT* Path Planner service");
+					srv_rrts.request.Obstacles.clear();
+					/* Assign the obstacle region for RRT* */
+					for (int i=0; i<numObs+1; i++)
 					{
-						rrtstar_msgs::Region obs_reg;
-						obs_reg.center_x = obstacles[i].x;
-						obs_reg.center_y = obstacles[i].y;
-						obs_reg.center_z = 0;
-						obs_reg.size_x = obsdim[i].x;
-						obs_reg.size_y = obsdim[i].y;
-						obs_reg.size_z = 0;
-						srv_rrts.request.Obstacles.push_back(obs_reg); // RRT* request member
-					}				
-				}
-
-				// Initial position is robot current one
-				//ros::spinOnce();
-				init.x = robot.x;
-				init.y = robot.y;
-				init.z = 0;
-				ROS_INFO("Robot position before calling RRT %f %f",init.x, init.y);
-
-				// Define goal region
-				goal_reg.center_x = goal.x;
-				goal_reg.center_y = goal.y;
-				goal_reg.center_z = 0;
-				goal_reg.size_x = 20;
-				goal_reg.size_y = 20;
-				goal_reg.size_z = 0;
-
-				// Note: workscape and object regions already defined
-				srv_rrts.request.Goal = goal_reg;
-				srv_rrts.request.Init = init;
-
-				if(cli_rrts.call(srv_rrts))
-				{
-					ROS_INFO("Path found: Publishing...");
-					pathsize = srv_rrts.response.path.size();
-					// Obtain trajectory point-by-point
-					geometry_msgs::Vector3 point;
-					rrtPath.path.clear();
-					for(int i=0; i<pathsize; i++)
-					{
-						point.x = srv_rrts.response.path[i].x;
-						point.y = srv_rrts.response.path[i].y;
-						point.z = srv_rrts.response.path[i].z;
-						// Only x and y coordinates matter
-						rrtPath.path.push_back(point);
-						ROS_INFO("Point %d: (%f,%f)", i, point.x, point.y);
+						if(!isnan(obstacles[i].x) || !isnan(obstacles[i].y))
+						{
+							rrtstar_msgs::Region obs_reg;
+							obs_reg.center_x = obstacles[i].x;
+							obs_reg.center_y = obstacles[i].y;
+							obs_reg.center_z = 0;
+							obs_reg.size_x = obsdim[i].x;
+							obs_reg.size_y = obsdim[i].y;
+							obs_reg.size_z = 0;
+							srv_rrts.request.Obstacles.push_back(obs_reg); // RRT* request member
+						}				
 					}
-					path_pub.publish(rrtPath);
-					state = 4;
-					writeStrToFile("Path found. Enabling control\n");
-				}
-				else
+
+					// Initial position is robot current one
+					//ros::spinOnce();
+					init.x = robot.x;
+					init.y = robot.y;
+					init.z = 0;
+					ROS_INFO("Robot position before calling RRT %f %f",init.x, init.y);
+
+					// Define goal region
+					goal_reg.center_x = goal.x;
+					goal_reg.center_y = goal.y;
+					goal_reg.center_z = 0;
+					goal_reg.size_x = GOAL_SIZE;
+					goal_reg.size_y = GOAL_SIZE;
+					goal_reg.size_z = 0;
+
+					// Note: workscape and object regions already defined
+					srv_rrts.request.Goal = goal_reg;
+					srv_rrts.request.Init = init;
+
+					if(cli_rrts.call(srv_rrts))
+					{
+						pathsize = srv_rrts.response.path.size();
+						if(pathsize < 3)
+						{
+						ROS_INFO("Path not found: RESET in the end...");
+							state=0;
+						}
+						else
+						{
+							ROS_INFO("Path found: Publishing...");
+							// Obtain trajectory point-by-point
+							geometry_msgs::Vector3 point;
+							rrtPath.path.clear();
+							for(int i=0; i<pathsize; i++)
+							{
+								point.x = srv_rrts.response.path[i].x;
+								point.y = srv_rrts.response.path[i].y;
+								point.z = srv_rrts.response.path[i].z;
+								// Only x and y coordinates matter
+								rrtPath.path.push_back(point);
+								ROS_INFO("Point %d: (%f,%f)", i, point.x, point.y);
+							}
+							path_pub.publish(rrtPath);
+							state = 4;
+							writeStrToFile("Path found. Enabling control\n");
+							// Plot using opencv final landscape with goal position
+							float pertmatrix[RES][RES]; //For opencv
+							for (int i=0; i<RES*RES; i++)
+							{
+								pertmatrix[i/RES][i%RES] = landscape[i].data*255;
+							}
+		                                        plotPertinence("Mapped landscape", pertmatrix, true, goal, rrtPath);
+						}
+						
+					}
+					else
+					{
+						ROS_ERROR("Failed to call RRT* Path Planner");
+						return 1;
+					}
+					// Enable robot control
+					enable.data = true;
+					flag_pub.publish(enable);
+				 }
+
+
+				if(state==0) 
+					command = "RESET";
+			 	else
 				{
-					ROS_ERROR("Failed to call RRT* Path Planner");
-					return 1;
+					n.setParam("/color_key", 2);
+					command = "";
 				}
-				// Enable robot control
-				enable.data = true;
-				flag_pub.publish(enable);
-			 }
 
-
-			if(state==0) 
-				command = "RESET";
-		 	else
-			{
-				n.setParam("/color_key", 2);
-				command = "";
-			}
+		 	}
 		 }
-		 
 		 
 		 /* Spin and wait for next period */
 		 ros::spinOnce();

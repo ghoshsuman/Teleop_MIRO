@@ -9,11 +9,11 @@
 #include <boost/random/uniform_real_distribution.hpp>
 
 /* Constants */
-#define HSIZE 300 // Horizontal map size (in cm)
-#define VSIZE 300 // Vertical map size (in cm)
-#define RES 30 // Grid resolution
-#define PERT_THRESH 0.9 
-#define MIN_THRESH 0.5 // Minimum acceptable output pertinence
+#define HSIZE 260 // Horizontal map size (in cm)
+#define VSIZE 260 // Vertical map size (in cm)
+#define RES 26 // Grid resolution
+#define PERT_THRESH 0.95 
+#define MIN_THRESH 0.3 // Minimum acceptable output pertinence
 #define LIMIT 2000 // Limit simulation rounds (timeout constraint)
 
 /** 
