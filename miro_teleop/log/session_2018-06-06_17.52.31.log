@@ -1,8 +1,0 @@
-2018-06-06_17.52.31: ,EXPERIMENT SETTING
-2018-06-06_17.52.31: ,Workspace size: (240  240), Resolution: 24, Num. of objects: 4
-2018-06-06_17.52.31: ,Object 1 located at (15.6478;72.7097)    Size: (50  50)
-2018-06-06_17.52.31: ,Object 2 located at (84.2536;-2.14753)    Size: (50  50)
-2018-06-06_17.52.31: ,Object 3 located at (-89.1862;-62.3934)    Size: (50  50)
-2018-06-06_17.52.31: ,Object 4 located at (-87.3645;7.75373)    Size: (50  50)
-2018-06-06_17.52.31: ,DATA HEADER
-2018-06-06_17.52.31: ,Command #, Type, Num. Kernels, Relation, Object ID, Qualifier, Pointing, User Orientation, Initial Pose, Final Pose, Fuzzy Pertinence, Path Found, Gest. Proc. Time, Mapping Time, Montecarlo Time, RRT* Time
