@@ -1,0 +1,13 @@
+2018-06-06_15.32.04: ,EXPERIMENT SETTING
+2018-06-06_15.32.04: ,Workspace size: (240  240), Resolution: 24, Num. of objects: 4
+2018-06-06_15.32.04: ,Object 1 located at (2.83505;67.1385)    Size: (50  50)
+2018-06-06_15.32.04: ,Object 2 located at (81.9934;-8.29206)    Size: (50  50)
+2018-06-06_15.32.04: ,Object 3 located at (-112.823;-19.1226)    Size: (50  50)
+2018-06-06_15.32.04: ,Object 4 located at (-114.995;59.6632)    Size: (50  50)
+2018-06-06_15.32.04: ,DATA HEADER
+2018-06-06_15.32.04: ,Command #, Type, Num. Kernels, Relation, Object ID, Qualifier, Pointing, User Orientation, Initial Pose, Final Pose, Fuzzy Pertinence, Path Found, Gest. Proc. Time, Mapping Time, Montecarlo Time, RRT* Time
+2018-06-06_15.32.20: ,1, GO, 1, LEFT, 1, NORMAL, Not detected, -0.0204946 deg., (-14.6452  -61.278), (-26.6155  68.2068), 0.947318, yes, 0.195766, 0.00609839, 0.0203796, 4.60991
+2018-06-06_15.32.35: ,2, GO, 2, BEHIND, 3, EXACTLY, Not detected, -0.0200204 deg., (-14.6457  -61.2782), (-79.9038  47.2991), 0.63461, yes, 0.13659, 0.0058331, 0.0152672, 3.90513
+2018-06-06_15.32.50: ,3, GO, 3, NEAR, 4, SLIGHTLY, Not detected, -0.0164143 deg., (-14.6454  -61.2783), (-78.0669  44.129), 0.63461, yes, 0.169403, 0.00590087, 0.0254069, 4.29728
+2018-06-06_15.32.59: ,4, , 3,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  
+2018-06-06_15.33.02: ,5, , 0,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  

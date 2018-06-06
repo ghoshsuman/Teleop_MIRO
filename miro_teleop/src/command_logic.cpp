@@ -25,9 +25,9 @@
 #include <vector>
 
 /* Definitions */
-#define HSIZE 260 // Horizontal map size (in cm)
-#define VSIZE 260 // Vertical map size (in cm)
-#define RES 26 // Grid resolution
+#define HSIZE 240 // Horizontal map size (in cm)
+#define VSIZE 240 // Vertical map size (in cm)
+#define RES 24 // Grid resolution
 #define numObs 4 // Number of objects
 #define GOAL_SIZE 5
 #define PI 3.14159
@@ -44,7 +44,20 @@ std::string qualifiers[3] = {"SLIGHTLY", "NORMAL", "EXACTLY"}; // Qualifiers - m
 ros::Time lock_time, cmd_time, gesture_time; // Time stamps associated with flags
 bool useGesture = false, cmd_received = false, lock_param = false, kernel_initialized = false; // Auxiliary flags
 double time_threshold = 8; // Max allowed time between gesture and speech (in sec.)
+int cmd_count = 0, num_ker = 0; // For logging purposes: command counter in session and number of kernels merged
+bool writtenOnLog = false; // For auxiliary log writing fun
+ros::Time gestproc_time, mapping_time, montecarlo_time, rrtstar_time;
+std::string base_path = "/home/emarolab/ros_ws/src/mmodal_teleop/miro_teleop/log/";
 
+/* Auxiliary functions to convert from number to string */
+std::string int_to_str(int num)
+{
+	 return static_cast<std::ostringstream*>(&(std::ostringstream()<<num))->str();
+}
+std::string double_to_str(double num)
+{
+	 return static_cast<std::ostringstream*>(&(std::ostringstream()<<num))->str();
+}
 
 /* Logging functions */
 const std::string getData(){
@@ -56,7 +69,7 @@ const std::string getData(){
 	return currentDate;
 }
 
-std::string printPath = "commandlogic_" + getData() + ".log"; // Std path to logfile
+std::string printPath = base_path + "session_" + getData() + ".log"; // Std path to logfile
 void writeStrToFile( const std::string &toWrite){
 	// Function to write to file a single string
         std::string formattedTime = getData();
@@ -74,20 +87,16 @@ void getCmd(const ros_cagg_msgs::cagg_tags::ConstPtr& msg)
 {
 	cmd.cagg_tags = msg->cagg_tags;
 	ROS_INFO("Command received from interpreter");
-	writeStrToFile("Command received from interpreter:");
 	command_tag = cmd.cagg_tags[0].cagg_tag;
 	if(command_tag.size()==0) 
 	{	
 		ROS_INFO("No tag found: command not understood");
-		writeStrToFile("not understood\n");
 		command = "";
 	}	
 	else
 	{
 		command = command_tag[0];
-		ROS_INFO("Interpreted command: %s", command.c_str());
-		writeStrToFile(command.c_str());
-		writeStrToFile("\n");	
+		ROS_INFO("Interpreted command: %s", command.c_str());	
 	}
 	cmd_time = msg->header.stamp;
 	// Detect when to use/ignore the gesture data and set useGesture accordingly
@@ -201,20 +210,35 @@ void plotKernel(const char* name, float matrix[][RES])
 
         if(false)
         {
-                // Plot gesture as a black point
+                // Plot gesture as a yellow point
                 x = (int)((gesture.x-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES));
                 y = RES-(int)((gesture.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
                 fin_img.at<cv::Vec3b>(cv::Point(x,y)) = cv::Vec3b(255,255,0);
+		/* Display image
 		cv::namedWindow(name, cv::WINDOW_NORMAL);
 		cv::imshow(name, fin_img);
 		cv::waitKey(0);
+		*/
+		// Save image on a file
+		cv::Mat resized_img;
+		cv::resize(fin_img, resized_img, cv::Size(800, 800), 1, 1, cv::INTER_NEAREST);
+		std::string cmd_num = int_to_str(cmd_count);
+		std::string path_img = base_path+"img/plot_"+getData()+"gesture_cmd_"+cmd_num+".jpg";
+		cv::imwrite(path_img, resized_img);
         }
 	else
 	{
-		// Display image
+		/* Display image
 		cv::namedWindow(name, cv::WINDOW_NORMAL);
 		cv::imshow(name, fin_img);
 		cv::waitKey(0);
+		*/
+		// Save image on a file
+		cv::Mat resized_img;
+		cv::resize(fin_img, resized_img, cv::Size(800, 800), 1, 1, cv::INTER_NEAREST);
+		std::string cmd_num = int_to_str(cmd_count);
+		std::string path_img = base_path+"img/plot_"+getData()+"kernel_cmd_"+cmd_num+".jpg";
+		cv::imwrite(path_img, resized_img);
 	}
 }
 
@@ -261,10 +285,18 @@ void plotPertinence(const char* name, float matrix[][RES], bool plotGoalandPath,
 		fin_img.at<cv::Vec3b>(cv::Point(x,y)) = cv::Vec3b(0,0,255);
 	}
 
-	// Display image
+	/* Display image
 	cv::namedWindow(name, cv::WINDOW_NORMAL);
 	cv::imshow(name, fin_img);
 	cv::waitKey(0);
+	*/
+	
+	// Save image on a file
+	cv::Mat resized_img;
+        cv::resize(fin_img, resized_img, cv::Size(800, 800), 1, 1, cv::INTER_NEAREST);
+	std::string cmd_num = int_to_str(cmd_count);
+	std::string path_img = base_path+"img/plot_"+getData()+"mapping_cmd_"+cmd_num+".jpg";
+	cv::imwrite(path_img, resized_img);
 }
 
 /* Auxiliary function to generate kernels */
@@ -312,7 +344,7 @@ int state, std_msgs::Float64* landscape)
 		// Verify whether the output is valid
 		if(!std::isfinite(landscape[0].data))
 		{
-			state = 0;
+			state = -1;
 			ROS_INFO("Invalid pertinence mapping");
 		}
 		else
@@ -375,6 +407,24 @@ bool obstaclesPlaced()
 	return true;
 }
 
+// Auxiliary function to write initial setting and header on Log
+void writeOnLog()
+{
+	writeStrToFile(",EXPERIMENT SETTING");
+	std::string setting_txt = ",Workspace size: ("+int_to_str(HSIZE)+"  "+int_to_str(VSIZE)+"), Resolution: "+int_to_str(RES)+", Num. of objects: "+int_to_str(numObs);
+	writeStrToFile(setting_txt);
+	for (int i=0; i<numObs; i++)
+	{
+		std::string obj_txt = ",Object "+int_to_str(i+1)+" located at ("+double_to_str(obstacles[i].x)+";"+
+			double_to_str(obstacles[i].y)+")    Size: ("+double_to_str(obsdim[i].x)+"  "+double_to_str(obsdim[i].y)+")";
+		writeStrToFile(obj_txt);
+	}
+	writeStrToFile(",DATA HEADER");
+	writeStrToFile(",Command #, Type, Num. Kernels, Relation, Object ID, Qualifier, Pointing, User Orientation, Initial Pose, Final Pose, Fuzzy Pertinence, Path Found, Gest. Proc. Time, Mapping Time, Montecarlo Time, RRT* Time");
+
+	writtenOnLog = true; 
+}
+
 /* Main function */
 
 int main(int argc, char **argv)
@@ -395,6 +445,8 @@ int main(int argc, char **argv)
 	/* Initialize and assign node handler */
 	ros::init(argc, argv, "command_logic");
 	ros::NodeHandle n;
+
+	n.param("path_to_pkg", base_path);
 
 	// Initialize time variables
 	lock_time = ros::Time::now(); 
@@ -452,12 +504,12 @@ int main(int argc, char **argv)
 		obstacles[i].y = nan("");
 		obstacles[i].theta = nan("");
                 // Define custom object dimesnions (already considering robot size)
-                obsdim[i].x=60;
-                obsdim[i].y=60;
+                obsdim[i].x=50;
+                obsdim[i].y=50;
 	}
-                //User dimensions (already considering robot size)
-		obsdim[numObs].x=30;
-		obsdim[numObs].y=30;
+                // Redefine user dimensions (already considering robot size)
+		obsdim[numObs].x=5;
+		obsdim[numObs].y=5;
 	
 	//ros::spinOnce(); // So that obstacle list is populated
 	/*
@@ -487,7 +539,27 @@ int main(int argc, char **argv)
 	{
 		if(obstaclesPlaced())
 		{
+
+			if(!writtenOnLog) writeOnLog();			
+
 			int tagslength = cmd.cagg_tags.size();
+
+			// Redefine log text variables
+			std::string cmd_txt = " ";
+			std::string ker_txt = " ";
+			std::string relation_txt = " ";
+			std::string objid_txt = " ";
+			std::string qualifier_txt = " ";
+			std::string pointing_txt = " ";
+			std::string user_txt = " ";
+			std::string initpose_txt = " ";
+			std::string finalpose_txt = " ";
+			std::string pert_txt = " ";
+			std::string path_found = " ";
+			std::string gestproc_dur = " ";
+			std::string mapping_dur = " "; 
+			std::string montecarlo_dur = " "; 
+			std::string rrtstar_dur = " "; 
 
 			// We receive a list of relations at a time from Interpreter node
 			// Parse each relation to extract "object#", "relationship", "qualifier"
@@ -503,8 +575,11 @@ int main(int argc, char **argv)
 			// Obtain command associated and corresponding tag length
 			if(cmd_received)
 			{
-				int firstTaglength = cmd.cagg_tags[0].cagg_tag.size();
+				// Increment command counter and associated string
+				cmd_count++;
+				cmd_txt = int_to_str(cmd_count);
 
+				int firstTaglength = cmd.cagg_tags[0].cagg_tag.size();
 				ROS_INFO("firstTaglength: %d",firstTaglength);
 				if(firstTaglength == 0) 	// Command not understood - set color red (1)
 				{
@@ -515,31 +590,40 @@ int main(int argc, char **argv)
 					}				
 					// Lock for 3 sec
 					lock_time = ros::Time::now();
+					command = "";
 				}
 				else // Command understood - set color blue (3)
 				{
 					if (!lock_param) n.setParam("/color_key", 3);
 				}
-				cmd_received = false; // Set flag to false
 			}
 		
+			if(state==-1)
+			{ 
+				command = "RESET";
+				state = 0;
+			}
+
 			// Work based on command received when callback is executed
 			// Reset: user not satisfied (aborted), Stop: user satisfied (done)
 			if(command.compare("RESET") == 0) // Stop robot, clear kernel
 			{
 				enable.data = false;
 				flag_pub.publish(enable);
+				num_ker = 0;
 				initKernel(landscape); // Reinitialize kernel
 				n.setParam("/color_key", 5); // Set lights to purple (5)
 				// Lock for 3 sec
 				lock_param = true;
 				lock_time = ros::Time::now();
+				// Reset command
 				command = "";
 			}
 			else if(command.compare("STOP") == 0) // Stop robot, clear kernel
 			{
 				enable.data = false;
 				flag_pub.publish(enable);
+				num_ker = 0;
 				initKernel(landscape); // Reinitialize kernel
 				n.setParam("/color_key", 6); // Set lights to white (6)
 				// Lock for 3 sec
@@ -549,6 +633,7 @@ int main(int argc, char **argv)
 			}
 			else if(command.compare("GO") == 0 && tagslength > 1) // Failsafe condition check
 			{
+				num_ker++; // Increase kernel merge count
 				// Disable movement whenever a new command is issued
 				enable.data = false;
 				flag_pub.publish(enable);
@@ -559,34 +644,44 @@ int main(int argc, char **argv)
 				// Initial state
 				state = 0;			
 			
+				int objid = atoi(cmd.cagg_tags[tagslength-1].cagg_tag[2].c_str());
+
 				// If a (stable) gesture is detected
 				ROS_INFO("%d", useGesture);
 		                if(useGesture)
 				{	
 					ROS_INFO("Valid gesture detected at (%f, %f)", gesture.x, gesture.y);
-					writeStrToFile("Gesture detected\n");
-
+					pointing_txt = "("+double_to_str(gesture.x)+"  "+double_to_str(gesture.y)+")";
 					srv_spat.request.center = gesture;
-					srv_spat.request.dimx.data = 1;
-					srv_spat.request.dimy.data = 1;
-					srv_spat.request.relationship.data = 4; // Relation: "near"
-		                        srv_spat.request.qualifier.data = 0; // Qualifier: "slightly"
-					state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
-				
-					if(state == -1) return 1;
-					else state = 2;
-	
 					useGesture = false;
+
 				}
+				else
+				{
+					ROS_INFO("No valid gesture detected");
+					srv_spat.request.center = obstacles[objid-1];
+					pointing_txt = "Not detected";
+				}
+				
+				
+				srv_spat.request.dimx.data = 1;
+				srv_spat.request.dimy.data = 1;
+				srv_spat.request.relationship.data = 4; // Relation: "near"
+				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
+				gestproc_time = ros::Time::now();			
+				gestproc_dur = double_to_str((gestproc_time-cmd_time).toSec());
+
+				if(state == -1) return 1;
+				else state = 2;
+
 
 				//We send data to spatial_reasoner even when gesture_processing fails
 				//Sending info to spatial_reasoner as per Interpreter tags
 				// Assuming tags in the form of
 				// [["go","quantifier","strictly"](Optional),["go","relation","right"],["go","object","1"]
-				int objid = atoi(cmd.cagg_tags[tagslength-1].cagg_tag[2].c_str());
+				
 				ROS_INFO("Object id: %d",objid);
-				writeStrToFile("Object id: ");
-				writeStrToFile(cmd.cagg_tags[tagslength-1].cagg_tag[2].c_str());
+				objid_txt = int_to_str(objid);
 				srv_spat.request.center = obstacles[objid-1];
 				srv_spat.request.dimx.data = obsdim[objid-1].x;
 				srv_spat.request.dimy.data = obsdim[objid-1].y;
@@ -595,12 +690,13 @@ int main(int argc, char **argv)
 					if(relationships[i].compare(cmd.cagg_tags[tagslength-2].cagg_tag[2])==0)
 					{
 						srv_spat.request.relationship.data = i;
-						ROS_INFO("Relation found: %s",relationships[i].c_str());	
-						writeStrToFile("Relation found: ");
-						writeStrToFile(relationships[i].c_str());				
+						ROS_INFO("Relation found: %s",relationships[i].c_str());
+						relation_txt = relationships[i].c_str();	
 						break;
 					}
 				}
+
+				qualifier_txt = "NORMAL"; // Default qualifier if none is said
 				if(tagslength>2)
 				{
 					for (int i=0; i<3; i++)
@@ -609,25 +705,26 @@ int main(int argc, char **argv)
 						{
 							srv_spat.request.qualifier.data = i;
 							ROS_INFO("Qualifier: %s",qualifiers[i].c_str());	
-							writeStrToFile("Qualifier: ");	
-							writeStrToFile(qualifiers[i].c_str());						
+							qualifier_txt = qualifiers[i].c_str();				
 							break;
 						}
 					}
 				}
 
 				srv_spat.request.user = user;
+				user_txt = double_to_str(user.theta*(180/PI))+" deg.";
 				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
-				/*srv_spat.request.relationship.data = 4; // Adding near
-				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);*/
+				mapping_time = ros::Time::now();
+				mapping_dur = double_to_str((mapping_time-gestproc_time).toSec());
 
 				if(state == -1)
 					return 1;
 				ROS_INFO("Kernel generated successfully");
-				writeStrToFile("Kernel generated.\n");
 
 				if(state==2)
 				{
+					initpose_txt = "("+double_to_str(robot.x)+"  "+double_to_str(robot.y)+")";
+
 					//Set input for Monte MonteCarlo
 					for (int i=0; i<RES*RES; i++)
 						srv_mont.request.landscape.push_back(landscape[i]);
@@ -636,16 +733,19 @@ int main(int argc, char **argv)
 					if (cli_mont.call(srv_mont))
 					{
 						goal = srv_mont.response.goal;
+						double pert_val = srv_mont.response.pert_value.data;
+						pert_txt = double_to_str(pert_val);
 						// Verify if goal returned is valid
 						if(isnan(goal.x) && isnan(goal.y))
 						{
 							ROS_INFO("Invalid goal position");
-							state = 0;
+							finalpose_txt = "Invalid";
+							state = -1;
 						}
 						else
 						{
 							ROS_INFO("Goal obtained: (%f,%f)", goal.x, goal.y);
-							writeStrToFile("Goal obtained. ");
+							finalpose_txt = "("+double_to_str(goal.x)+"  "+double_to_str(goal.y)+")";
 							state = 3;
 						}
 					}
@@ -655,6 +755,8 @@ int main(int argc, char **argv)
 						return 1;
 					}
 					srv_mont.request.landscape.clear();
+					montecarlo_time = ros::Time::now();
+					montecarlo_dur = double_to_str((montecarlo_time-mapping_time).toSec());
 				}
 				
 
@@ -704,12 +806,14 @@ int main(int argc, char **argv)
 						pathsize = srv_rrts.response.path.size();
 						if(pathsize < 3)
 						{
-						ROS_INFO("Path not found: RESET in the end...");
+							ROS_INFO("Path not found: Resetting...");
 							state=0;
+							path_found = "no";				
 						}
 						else
 						{
 							ROS_INFO("Path found: Publishing...");
+							path_found = "yes";
 							// Obtain trajectory point-by-point
 							geometry_msgs::Vector3 point;
 							rrtPath.path.clear();
@@ -724,7 +828,6 @@ int main(int argc, char **argv)
 							}
 							path_pub.publish(rrtPath);
 							state = 4;
-							writeStrToFile("Path found. Enabling control\n");
 							// Plot using opencv final landscape with goal position
 							float pertmatrix[RES][RES]; //For opencv
 							for (int i=0; i<RES*RES; i++)
@@ -743,18 +846,25 @@ int main(int argc, char **argv)
 					// Enable robot control
 					enable.data = true;
 					flag_pub.publish(enable);
+					rrtstar_time = ros::Time::now();
+					rrtstar_dur = double_to_str((rrtstar_time-montecarlo_time).toSec());
 				 }
-
-
-				if(state==0) 
-					command = "RESET";
-			 	else
-				{
-					n.setParam("/color_key", 2);
-					command = "";
-				}
-
+			
+				n.setParam("/color_key", 2);
 		 	}
+
+			if(cmd_received)
+			{
+				ker_txt = int_to_str(num_ker);
+				// Log results
+				std::string log_txt = ","+cmd_txt+", "+command+", "+ker_txt+", "+relation_txt+
+				", "+objid_txt+", "+qualifier_txt+", "+pointing_txt+", "+user_txt+
+				", "+initpose_txt+", "+finalpose_txt+", "+pert_txt+", "+path_found+
+				", "+gestproc_dur+", "+mapping_dur+", "+montecarlo_dur+", "+rrtstar_dur;
+				writeStrToFile(log_txt);
+				cmd_received = false; // Set flag to false
+			}
+			command = "";
 		 }
 		 
 		 /* Spin and wait for next period */

@@ -6,9 +6,9 @@
 
 /* Definitions */
 #define PI 3.14159
-#define HSIZE 260 // Horizontal map size (in cm)
-#define VSIZE 260 // Vertical map size (in cm)
-#define RES 26 // Grid resolution
+#define HSIZE 240 // Horizontal map size (in cm)
+#define VSIZE 240 // Vertical map size (in cm)
+#define RES 24 // Grid resolution
 /**
  * Spatial Reasoner Service function.
  * Generates the spatial relation landscape matrices.
@@ -35,7 +35,9 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	double a = req.dimx.data;
 	double b = req.dimy.data;
 	
-	double var = (HSIZE/3)*(HSIZE/3); // Parameter for the 'near' relation
+	ROS_INFO("xr = %f, yr = %f, a = %f, b = %f",xr,yr,a,b);
+
+	double var = (HSIZE/4)*(HSIZE/4); // Parameter for the 'near' relation
 
 	/* User orientation angle */
 	double u_ang = req.user.theta;
@@ -49,7 +51,7 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 	/* Obtain desired relation tag */
 	int dir = req.relationship.data; 
 	double c_ang = cos(dir*PI/2+u_ang);
-    double s_ang = sin(dir*PI/2+u_ang);
+    	double s_ang = sin(dir*PI/2+u_ang);
 
 	/* Set qualifier */
 	double q;

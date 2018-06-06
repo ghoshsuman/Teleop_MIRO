@@ -7,8 +7,8 @@
 #include "tf/transform_datatypes.h"
 
 #define H 80 // Relative height with respect to ground (in cm)
-#define HSIZE 260 // Horizontal map size (in cm)
-#define VSIZE 260 // Vertical map size (in cm)
+#define HSIZE 240 // Horizontal map size (in cm)
+#define VSIZE 240 // Vertical map size (in cm)
 
 geometry_msgs::Point p1, p0; // Default and actual position of gesture body
 geometry_msgs::PoseStamped stablePose; // Stable pose found

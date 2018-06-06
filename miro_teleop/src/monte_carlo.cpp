@@ -9,9 +9,9 @@
 #include <boost/random/uniform_real_distribution.hpp>
 
 /* Constants */
-#define HSIZE 260 // Horizontal map size (in cm)
-#define VSIZE 260 // Vertical map size (in cm)
-#define RES 26 // Grid resolution
+#define HSIZE 240 // Horizontal map size (in cm)
+#define VSIZE 240 // Vertical map size (in cm)
+#define RES 24 // Grid resolution
 #define PERT_THRESH 0.95 
 #define MIN_THRESH 0.3 // Minimum acceptable output pertinence
 #define LIMIT 2000 // Limit simulation rounds (timeout constraint)
@@ -122,6 +122,7 @@ bool MCSimulation(miro_teleop::MonteCarlo::Request  &req,
 
     	res.goal.x = max_x;
     	res.goal.y = max_y;
+	res.pert_value.data = max_obj;
     	ROS_INFO("Goal position: (%f,%f) with val=%f", max_x, max_y, max_obj);
     	return true;
 }

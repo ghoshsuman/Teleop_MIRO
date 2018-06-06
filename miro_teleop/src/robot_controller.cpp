@@ -18,24 +18,6 @@ std::vector<geometry_msgs::Vector3> path; // Trajectory array
 geometry_msgs::Pose2D robot; // Robot position
 geometry_msgs::Pose2D gesture; // Gesture position
 
-const std::string getData(){
-	std::time_t t = std::time(NULL);
-	char mbstr[20];
-	std::strftime(mbstr, sizeof(mbstr), "%Y-%m-%d_%H.%M.%S", std::localtime(&t));
-	std::string currentDate(mbstr);
-	return currentDate;
-}
-
-// For logging purposes - function to write to file a single string
-std::string printPath = "robotcontroller_" + getData() + ".log";
-void writeStrToFile( const std::string &toWrite){
-        std::string formattedTime = getData();
-	std::ofstream file;
-	file.open(printPath.c_str(), std::ofstream::out | std::ofstream::app);
-        file << formattedTime << ": " << toWrite << "\n";
-	file.close();
-}
-
 /** 
  * Subscriber callback function.
  * Obtains trajectory from Command Logic node. 
@@ -47,13 +29,8 @@ void getPoint(const miro_teleop::Path::ConstPtr& points)
 	// path = points->path;
 	ROS_INFO("Received new path");
 	for(int i=0;i< points->path.size();i++)
-		path.push_back(points->path[i]);
-	for(int i=0;i< points->path.size();i++)
-	{	
-		std::stringstream ss;
-		ss << "\nPath point "<<i<<" : "<< path[i].x << ", "<<path[i].y;
-		std::string sout = ss.str();		
-		writeStrToFile(sout);
+	{
+		path.push_back(points->path[i]);		
 		ROS_INFO("Path point %d: %f, %f,", i, path[i].x, path[i].y);
 	}
 }
