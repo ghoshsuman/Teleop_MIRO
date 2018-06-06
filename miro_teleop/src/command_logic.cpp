@@ -17,12 +17,14 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <highgui.h>
 #include <opencv/cv.hpp>
+#include <boost/filesystem.hpp>
 #include <cmath>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
+
 
 /* Definitions */
 #define HSIZE 240 // Horizontal map size (in cm)
@@ -42,12 +44,13 @@ ros_cagg_msgs::cagg_tags cmd; // Command tag received from speech recognition
 std::string relationships[5] = {"RIGHT", "BEHIND", "LEFT", "FRONT", "NEAR"}; // Relations - maintain order
 std::string qualifiers[3] = {"SLIGHTLY", "NORMAL", "EXACTLY"}; // Qualifiers - maintain order
 ros::Time lock_time, cmd_time, gesture_time; // Time stamps associated with flags
-bool useGesture = false, cmd_received = false, lock_param = false, kernel_initialized = false; // Auxiliary flags
+bool useGesture = false, plot_gesture = false, cmd_received = false, lock_param = false, kernel_initialized = false; // Auxiliary flags
 double time_threshold = 8; // Max allowed time between gesture and speech (in sec.)
 int cmd_count = 0, num_ker = 0; // For logging purposes: command counter in session and number of kernels merged
 bool writtenOnLog = false; // For auxiliary log writing fun
 ros::Time gestproc_time, mapping_time, montecarlo_time, rrtstar_time;
 std::string base_path = "/home/emarolab/ros_ws/src/mmodal_teleop/miro_teleop/log/";
+std::string path_to_img = base_path + "img/";
 
 /* Auxiliary functions to convert from number to string */
 std::string int_to_str(int num)
@@ -183,6 +186,23 @@ void getObstacle6Pose(const geometry_msgs::Pose2D::ConstPtr& groundpose)
 	addToObsList(groundpose, 6);
 }
 
+/* Function to verify if some point (x,y) is inside any object from a given list */
+bool isIn(int i, int j)
+{
+	double cx, cy, dx, dy, x, y;
+	x = HSIZE/double(2*RES)+HSIZE*(j/double(RES))-HSIZE/2;
+	y = VSIZE/double(2*RES)+VSIZE*((RES-i-1)/double(RES))-VSIZE/2;
+	for (int k = 0; k<numObs+1; k++)
+	{
+		cx = obstacles[k].x;
+		cy = obstacles[k].y;
+		dx = obsdim[k].x;
+		dy = obsdim[k].y;
+		if((x>(cx-dx/2))&&(x<(cx+dx/2))&&(y>(cy-dy/2))&&(y<(cy+dy/2)))
+			return true;
+	}
+	return false;
+}
 
 void plotKernel(const char* name, float matrix[][RES])
 {
@@ -200,20 +220,27 @@ void plotKernel(const char* name, float matrix[][RES])
         cv::merge(channels, fin_img);
 
         //Plot user orientation
-        user_x = (int)((user.x-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES));
-        user_y = RES-(int)((user.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+        user_x = (int)((user.x-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES))*800/double(RES);
+        user_y = (RES-(int)((user.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1)*800/double(RES);
         dest_x_real=user.x+L*cos(user.theta+PI/2);
         dest_y_real=user.y+L*sin(user.theta+PI/2);
-        dest_x_img=(int)((dest_x_real-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES));
-        dest_y_img=RES-(int)((dest_y_real-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
-        cv::arrowedLine(fin_img, cv::Point(user_x, user_y),cv::Point(dest_x_img, dest_y_img), CV_RGB(255, 0, 0), 1, 8, 0, 0.2);
+        dest_x_img=(int)((dest_x_real-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES))*800/double(RES);
+        dest_y_img=(RES-(int)((dest_y_real-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1)*800/double(RES);
 
-        if(false)
+	//Plot objects (blue)
+	for(int i=0; i<RES; i++)
+		for(int j=0; j<RES; j++)
+			if(isIn(j,i))
+				fin_img.at<cv::Vec3b>(cv::Point(i,j)) = cv::Vec3b(128,128,0);
+
+	
+
+        if(useGesture)
         {
-                // Plot gesture as a yellow point
+                // Plot gesture as a purple point
                 x = (int)((gesture.x-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES));
                 y = RES-(int)((gesture.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
-                fin_img.at<cv::Vec3b>(cv::Point(x,y)) = cv::Vec3b(255,255,0);
+                fin_img.at<cv::Vec3b>(cv::Point(x,y)) = cv::Vec3b(255,0,255);
 		/* Display image
 		cv::namedWindow(name, cv::WINDOW_NORMAL);
 		cv::imshow(name, fin_img);
@@ -222,9 +249,11 @@ void plotKernel(const char* name, float matrix[][RES])
 		// Save image on a file
 		cv::Mat resized_img;
 		cv::resize(fin_img, resized_img, cv::Size(800, 800), 1, 1, cv::INTER_NEAREST);
+		cv::arrowedLine(resized_img, cv::Point(user_x, user_y),cv::Point(dest_x_img, dest_y_img), CV_RGB(255, 255, 0), 3, 8, 0, 0.1);		
 		std::string cmd_num = int_to_str(cmd_count);
-		std::string path_img = base_path+"img/plot_"+getData()+"gesture_cmd_"+cmd_num+".jpg";
+		std::string path_img = path_to_img+"plot_"+getData()+"gesture_cmd_"+cmd_num+".jpg";
 		cv::imwrite(path_img, resized_img);
+		plot_gesture = true;
         }
 	else
 	{
@@ -236,8 +265,9 @@ void plotKernel(const char* name, float matrix[][RES])
 		// Save image on a file
 		cv::Mat resized_img;
 		cv::resize(fin_img, resized_img, cv::Size(800, 800), 1, 1, cv::INTER_NEAREST);
+		cv::arrowedLine(resized_img, cv::Point(user_x, user_y),cv::Point(dest_x_img, dest_y_img), CV_RGB(255, 255, 0), 3, 8, 0, 0.1);		
 		std::string cmd_num = int_to_str(cmd_count);
-		std::string path_img = base_path+"img/plot_"+getData()+"kernel_cmd_"+cmd_num+".jpg";
+		std::string path_img = path_to_img+"plot_"+getData()+"kernel_cmd_"+cmd_num+".jpg";
 		cv::imwrite(path_img, resized_img);
 	}
 }
@@ -263,14 +293,29 @@ void plotPertinence(const char* name, float matrix[][RES], bool plotGoalandPath,
 	cv::merge(channels, fin_img);
 
         //Plot user orientation
-        user_x = (int)((user.x-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES));
-        user_y = RES-(int)((user.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+        user_x = (int)((user.x-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES))*800/double(RES);
+        user_y = (RES-(int)((user.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1)*800/double(RES);
         dest_x_real=user.x+L*cos(user.theta+PI/2);
         dest_y_real=user.y+L*sin(user.theta+PI/2);
-        dest_x_img=(int)((dest_x_real-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES));
-        dest_y_img=RES-(int)((dest_y_real-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
-        cv::arrowedLine(fin_img, cv::Point(user_x, user_y),cv::Point(dest_x_img, dest_y_img), CV_RGB(255, 255, 0), 1, 8, 0, 0.2);
+        dest_x_img=(int)((dest_x_real-VSIZE/double(2*RES)+VSIZE/2)/VSIZE*double(RES))*800/double(RES);
+        dest_y_img=(RES-(int)((dest_y_real-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1)*800/double(RES);
+        
 
+	//Plot objects (blue)
+	for(int i=0; i<RES; i++)
+		for(int j=0; j<RES; j++)
+			if(isIn(j,i))
+				fin_img.at<cv::Vec3b>(cv::Point(i,j)) = cv::Vec3b(128,128,0);
+
+	
+        if(plot_gesture)
+        {
+                // Plot gesture as a purple point
+                x = (int)((gesture.x-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES));
+                y = RES-(int)((gesture.y-HSIZE/double(2*RES)+HSIZE/2)/HSIZE*double(RES))-1;
+                fin_img.at<cv::Vec3b>(cv::Point(x,y)) = cv::Vec3b(255,0,255);
+		plot_gesture = false;
+	}
 
 	if(plotGoalandPath)
 	{
@@ -294,8 +339,10 @@ void plotPertinence(const char* name, float matrix[][RES], bool plotGoalandPath,
 	// Save image on a file
 	cv::Mat resized_img;
         cv::resize(fin_img, resized_img, cv::Size(800, 800), 1, 1, cv::INTER_NEAREST);
+	cv::arrowedLine(resized_img, cv::Point(user_x, user_y),cv::Point(dest_x_img, dest_y_img), CV_RGB(255, 255, 0), 3, 8, 0, 0.1);
+
 	std::string cmd_num = int_to_str(cmd_count);
-	std::string path_img = base_path+"img/plot_"+getData()+"mapping_cmd_"+cmd_num+".jpg";
+	std::string path_img = path_to_img+"plot_"+getData()+"mapping_cmd_"+cmd_num+".jpg";
 	cv::imwrite(path_img, resized_img);
 }
 
@@ -362,23 +409,7 @@ int state, std_msgs::Float64* landscape)
 
 }
 
-/* Function to verify if some point (x,y) is inside any object from a given list */
-bool isIn(int i, int j)
-{
-	double cx, cy, dx, dy, x, y;
-	x = HSIZE/double(2*RES)+HSIZE*(j/double(RES))-HSIZE/2;
-	y = VSIZE/double(2*RES)+VSIZE*((RES-i-1)/double(RES))-VSIZE/2;
-	for (int k = 0; k<numObs+1; k++)
-	{
-		cx = obstacles[k].x;
-		cy = obstacles[k].y;
-		dx = obsdim[k].x;
-		dy = obsdim[k].y;
-		if((x>(cx-dx/2))&&(x<(cx+dx/2))&&(y>(cy-dy/2))&&(y<(cy+dy/2)))
-			return true;
-	}
-	return false;
-}
+
 
 /* Initialize landscape[] by blacking out all obstacles in a white background */
 void initKernel(std_msgs::Float64* landscape)
@@ -447,6 +478,18 @@ int main(int argc, char **argv)
 	ros::NodeHandle n;
 
 	n.param("path_to_pkg", base_path);
+
+	// Plot images on a specific folder within img/
+	path_to_img = base_path + "img/session_" + getData() + "/";
+	try 
+	{
+		boost::filesystem::path dirPath(path_to_img);
+		boost::filesystem::create_directories(dirPath.parent_path());
+	}
+	catch(const boost::filesystem::filesystem_error& err) 
+	{
+		std::cerr << err.what() << std::endl;
+	}
 
 	// Initialize time variables
 	lock_time = ros::Time::now(); 
@@ -642,7 +685,8 @@ int main(int argc, char **argv)
 				if(!kernel_initialized) initKernel(landscape);
 
 				// Initial state
-				state = 0;			
+				state = 0;		
+				plot_gesture = false;	
 			
 				int objid = atoi(cmd.cagg_tags[tagslength-1].cagg_tag[2].c_str());
 
@@ -653,6 +697,10 @@ int main(int argc, char **argv)
 					ROS_INFO("Valid gesture detected at (%f, %f)", gesture.x, gesture.y);
 					pointing_txt = "("+double_to_str(gesture.x)+"  "+double_to_str(gesture.y)+")";
 					srv_spat.request.center = gesture;
+					srv_spat.request.dimx.data = 1;
+					srv_spat.request.dimy.data = 1;
+					srv_spat.request.relationship.data = 4; // Relation: "near"
+					state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
 					useGesture = false;
 
 				}
@@ -661,13 +709,13 @@ int main(int argc, char **argv)
 					ROS_INFO("No valid gesture detected");
 					srv_spat.request.center = obstacles[objid-1];
 					pointing_txt = "Not detected";
-				}
+					// Relation: "near" FOR OBJECT
+					srv_spat.request.dimx.data = 1;
+					srv_spat.request.dimy.data = 1;
+					srv_spat.request.relationship.data = 4;
+					state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
+				}	
 				
-				
-				srv_spat.request.dimx.data = 1;
-				srv_spat.request.dimy.data = 1;
-				srv_spat.request.relationship.data = 4; // Relation: "near"
-				state = generateLandscape(cli_spat, cli_pert, srv_spat, srv_pert, state, landscape);
 				gestproc_time = ros::Time::now();			
 				gestproc_dur = double_to_str((gestproc_time-cmd_time).toSec());
 

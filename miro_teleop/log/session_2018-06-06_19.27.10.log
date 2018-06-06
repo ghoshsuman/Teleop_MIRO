@@ -1,0 +1,9 @@
+2018-06-06_19.27.11: ,EXPERIMENT SETTING
+2018-06-06_19.27.11: ,Workspace size: (240  240), Resolution: 24, Num. of objects: 4
+2018-06-06_19.27.11: ,Object 1 located at (15.5838;72.7462)    Size: (50  50)
+2018-06-06_19.27.11: ,Object 2 located at (84.0258;-1.52886)    Size: (50  50)
+2018-06-06_19.27.11: ,Object 3 located at (-89.1659;-62.4056)    Size: (50  50)
+2018-06-06_19.27.11: ,Object 4 located at (-86.3847;8.05024)    Size: (50  50)
+2018-06-06_19.27.11: ,DATA HEADER
+2018-06-06_19.27.11: ,Command #, Type, Num. Kernels, Relation, Object ID, Qualifier, Pointing, User Orientation, Initial Pose, Final Pose, Fuzzy Pertinence, Path Found, Gest. Proc. Time, Mapping Time, Montecarlo Time, RRT* Time
+2018-06-06_19.27.30: ,1, GO, 1, BEHIND, 2, NORMAL, Not detected, 0.975253 deg., (6.14518  -12.2314), (85.4293  24.4013), 0.95224, yes, 0.123875, 0.00614389, 0.00923598, 5.43386

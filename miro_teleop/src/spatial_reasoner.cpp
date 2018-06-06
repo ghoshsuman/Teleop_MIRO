@@ -87,7 +87,12 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 				yv = yp-yr;
 				dist_min = sqrt(xv*xv+yv*yv);
 				if(dist_min==0) beta_min=0;
-				else beta_min = acos((xv*c_ang+yv*s_ang)/dist_min);		            
+				else beta_min = acos((xv*c_ang+yv*s_ang)/dist_min);	
+
+				if(dir<4) 
+					M[x+y*RES].data = pow(fmax(0,1.0-(2.0*beta_min/PI)),q);
+		        	else 
+					M[x+y*RES].data = pow(exp(-pow(dist_min,2.0)/(2*var)),q);
 		       	}
 			/* For every element of the object calculate
 			for(int i=0;i<RES;i++)
@@ -109,13 +114,14 @@ bool SpatialReasoner(miro_teleop::SpatialReasoner::Request  &req,
 				        	if(dist<dist_min) dist_min = dist;
 					}
 		           	}
-		    	}*/
+		    	}
 
-			/* Update matrices with minimum pertinences */
+			// Update matrices with minimum pertinences
 		        if(dir<4) 
 				M[x+y*RES].data = pow(fmax(0,1.0-(2.0*beta_min/PI)),q);
 		        else 
 				M[x+y*RES].data = pow(exp(-pow(dist_min,2.0)/(2*var)),q);
+			*/
 		}
 	}
 
