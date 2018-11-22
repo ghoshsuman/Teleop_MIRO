@@ -2,11 +2,13 @@
 Multi-Modal Qualitative Teleoperation with Speech and Gestures
 
 **Objective:**
-ROS-based software architecture that drives the MIRO robot from Consequential Robotics to a given position, given a set of spatial relations with respect to referenced objects in the workspace, and a pointing gesture. We use as feedback the information provided by a visual tracking system, in this case the Motion Capture by OptiTrack.
+ROS-based software architecture that drives the MIRO robot to a given position, given a set of spatial relations with respect to referenced objects in the workspace, using speech and pointing gesture. We use as feedback the information provided by a visual tracking system, in this case, the Motion Capture by OptiTrack.
 
 **Publication:**
 https://www.researchgate.net/publication/328806816_A_Scalable_Architecture_to_Design_Multi-modal_Interactions_for_Qualitative_Robot_Navigation_XVIIth_International_Conference_of_the_Italian_Association_for_Artificial_Intelligence_Trento_Italy_November
 
+**Video:**
+https://youtu.be/CqpGLE-Fj_k
 
 **Dependencies:**
 Install the [ross_cagg_miro_teleop](https://github.com/EmaroLab/ros_cagg_miro_teleop) packages and all its sub-dependencies.
