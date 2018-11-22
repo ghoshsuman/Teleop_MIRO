@@ -9,7 +9,7 @@ https://www.researchgate.net/publication/328806816_A_Scalable_Architecture_to_De
 
 
 **Dependencies:**
-Install the ross_cagg_miro_teleop (https://github.com/EmaroLab/ros_cagg_miro_teleop) packages and all its sub-dependencies.
+Install the [ross_cagg_miro_teleop](https://github.com/EmaroLab/ros_cagg_miro_teleop) packages and all its sub-dependencies.
 
 **Installation and experiment preparation:**
 - Clone the master branch of mmodal_teleop repository inside the `src` folder of your `catkin_ws`
