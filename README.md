@@ -7,6 +7,10 @@ ROS-based software architecture that drives the MIRO robot from Consequential Ro
 **Publication:**
 https://www.researchgate.net/publication/328806816_A_Scalable_Architecture_to_Design_Multi-modal_Interactions_for_Qualitative_Robot_Navigation_XVIIth_International_Conference_of_the_Italian_Association_for_Artificial_Intelligence_Trento_Italy_November
 
+
+**Dependencies:**
+Install the ross_cagg_miro_teleop (https://github.com/EmaroLab/ros_cagg_miro_teleop) packages and all its sub-dependencies.
+
 **Installation and experiment preparation:**
 - Clone the master branch of mmodal_teleop repository inside the `src` folder of your `catkin_ws`
 - The following 2 OpenCV steps are **optional**. You can either follow them, or comment out relevant code in `miro_teleop/src/command_logic.cpp`
