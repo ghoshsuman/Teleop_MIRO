@@ -1,4 +1,8 @@
 geometry_msgs/Pose2D center
-std_msgs/Float64[] dimensions
+geometry_msgs/Pose2D user
+std_msgs/Float64 dimx
+std_msgs/Float64 dimy
+std_msgs/UInt8 relationship
+std_msgs/UInt8 qualifier
 ---
 std_msgs/Float64[] matrices

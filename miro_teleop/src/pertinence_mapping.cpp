@@ -3,15 +3,11 @@
 #include "miro_teleop/PertinenceMapping.h"
 #include <cstdio>
 #include <cmath>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
 
 /* Constants */
-#define HSIZE 400 // Horizontal map size (in cm)
-#define VSIZE 400 // Vertical map size (in cm)
-#define NZ 5 // Number of zones
-#define RES 40 // Grid resolution
-#define GAMMA 2.0 // Scaling factor for target pertinences
+#define HSIZE 240 // Horizontal map size (in cm)
+#define VSIZE 240 // Vertical map size (in cm)
+#define RES 24 // Grid resolution
 
 /**
  * Pertinence Mapping Service function.
@@ -24,59 +20,23 @@
  * Then, a normalization is done to maintain the elements in the range [0,1].
  */
 bool PertinenceMapper(miro_teleop::PertinenceMapping::Request  &req,
-         	      miro_teleop::PertinenceMapping::Response &res)
+        			  miro_teleop::PertinenceMapping::Response &res)
 {
-	/* Input 3-D matrix to be processed (received from master) */
-	std_msgs::Float64 matrices[NZ*RES*RES];
+	/* Input matrices to be processed (received from master) */
+	std_msgs::Float64 M1[RES*RES], M2[RES*RES];
 
 	/* Landscape matrix to be returned (mapped into an 1-D array) */
-	std_msgs::Float64 landscape[RES*RES];
+	std_msgs::Float64 MOut[RES*RES];
 
-	double max = 0;
+	ROS_INFO("Request received from central node");
 
-	ROS_INFO("Request received from master node");
-	ROS_INFO("Target: (%f %f)",req.target.x,req.target.y);
-
-	/* Obtain input from request */
-	for(int i=0;i<req.matrices.size();i++)
-		matrices[i].data = req.matrices[i].data;
-
-	/* Extract target coordinates and map to grid */
-	int Px = floor((req.target.x+HSIZE/2)*RES/HSIZE);
-	// Inverting y coordinate to match matrix ordering
-	int Py = RES-1-floor((req.target.y+VSIZE/2)*RES/VSIZE); 	
-	ROS_INFO("Target grid coordinates: [%d, %d]",Px,Py);
-
-	/* Calculate point pertinences from input landscapes */
-	double P[4];
-	for(int dir=0;dir<4;dir++) 
-	{
-    		P[dir] = pow(matrices[Px+RES*Py+RES*RES*dir].data,GAMMA);
-   		ROS_INFO("P[%d]=%f",dir,P[dir]);
-  	}
-
-	/* Perform mapping of all landscapes into one */
-  	// Note: i = columns, j = rows
-	for(int i=0;i<RES;i++)
-	{
-		for(int j=0;j<RES;j++)
-		{
-			landscape[i+RES*j].data =
-				(P[0]*matrices[i+RES*j].data +
-				 P[1]*matrices[i+RES*j+1*RES*RES].data +
-				 P[2]*matrices[i+RES*j+2*RES*RES].data +
-				 P[3]*matrices[i+RES*j+3*RES*RES].data)
-				*matrices[i+RES*j+(NZ-1)*RES*RES].data;
-			// For performing normalization
-			if(landscape[i+RES*j].data>max)
-				max = landscape[i+RES*j].data;
-		}
-	}
-	/* Attach obtained matrix to response */
+	/* Obtain inputs from request and performs fuzzy and*/
 	for(int i=0;i<RES*RES;i++)
 	{
-		landscape[i].data = (landscape[i].data)/max;
-		res.landscape.push_back(landscape[i]);
+		M1[i].data = req.M1[i].data;
+		M2[i].data = req.M2[i].data;
+		MOut[i].data = fmin(M1[i].data, M2[i].data);
+		res.MOut.push_back(MOut[i]);
 	}
 
 	ROS_INFO("Successfully mapped the pertinences");

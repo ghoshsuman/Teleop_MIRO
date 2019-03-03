@@ -6,8 +6,8 @@
 #include <cmath>
 
 /* Definitions */
-#define HSIZE 400
-#define VSIZE 400
+#define HSIZE 300 // Horizontal map size (in cm)
+#define VSIZE 300 // Vertical map size (in cm)
 #define H 80 // Height of the plane (in cm) with respect to the referential
 
 /**

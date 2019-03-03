@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(miro_teleop)
-set(OpenCV_DIR /usr/share/OpenCV)
+#set(OpenCV_DIR /usr/share/OpenCV)
 
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
@@ -11,14 +11,17 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   miro_msgs
   message_generation
-  OpenCV
+#  OpenCV
+  cv_bridge
 )
+
+find_package(OpenCV REQUIRED)
 
 add_service_files(
   DIRECTORY
   srv
   FILES
-  GestureProcessing.srv
+  # GestureProcessing.srv
   MonteCarlo.srv
   SpatialReasoner.srv
   PertinenceMapping.srv
@@ -37,17 +40,20 @@ generate_messages(
   miro_msgs
 )
 
-add_executable(interpreter src/interpreter.cpp)
-target_link_libraries(interpreter ${catkin_LIBRARIES})
-add_dependencies(interpreter miro_teleop_gencpp)
+
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
+  include
+)
 
 add_executable(command_logic src/command_logic.cpp)
-target_link_libraries(command_logic ${catkin_LIBRARIES})
+target_link_libraries(command_logic ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 add_dependencies(command_logic miro_teleop_gencpp rrtstar_msgs_gencpp)
 
-add_executable(gesture_processing_server src/gesture_processing.cpp)
-target_link_libraries(gesture_processing_server ${catkin_LIBRARIES})
-add_dependencies(gesture_processing_server miro_teleop_gencpp)
+# add_executable(gesture_processing_server src/gesture_processing.cpp)
+# target_link_libraries(gesture_processing_server ${catkin_LIBRARIES})
+# add_dependencies(gesture_processing_server miro_teleop_gencpp)
 
 add_executable(monte_carlo_server src/monte_carlo.cpp)
 target_link_libraries(monte_carlo_server ${catkin_LIBRARIES})
@@ -65,9 +71,14 @@ add_executable(robot_controller src/robot_controller.cpp)
 target_link_libraries(robot_controller ${catkin_LIBRARIES})
 add_dependencies(robot_controller miro_teleop_gencpp miro_msgs_gencpp miro_msgs_genpy)
 
+add_executable(tracker_node src/tracker_node.cpp)
+target_link_libraries(tracker_node ${catkin_LIBRARIES})
+add_dependencies(tracker_node miro_teleop_gencpp)
+
 catkin_package(CATKIN_DEPENDS message_runtime)
 
-include_directories(
+#include_directories(
 # include
-  ${catkin_INCLUDE_DIRS}
-)
+#  ${catkin_INCLUDE_DIRS}
+#)
+
