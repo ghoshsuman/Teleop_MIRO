@@ -5,7 +5,8 @@ Multi-Modal Qualitative Teleoperation with Speech and Gestures
 ROS-based software architecture that drives the MIRO robot to a given position, given a set of spatial relations with respect to referenced objects in the workspace, using speech and pointing gesture. We use as feedback the information provided by a visual tracking system, in this case, the Motion Capture by OptiTrack.
 
 **Publication:**
-https://www.researchgate.net/publication/328806816_A_Scalable_Architecture_to_Design_Multi-modal_Interactions_for_Qualitative_Robot_Navigation_XVIIth_International_Conference_of_the_Italian_Association_for_Artificial_Intelligence_Trento_Italy_November
+Luca Buoncompagni*, Suman Ghosh*, Mateus Moura*, Fulvio Mastrogiovanni, “A Scalable Architecture to Design Multi-Modal Interactions for Qualitative Robot Navigation”, 17th International Conference on Advances in Artificial Intelligence (AI*IA) Nov 2018, Lecture Notes in Computer Science, vol 11298. Springer, Cham.
+https://link.springer.com/chapter/10.1007%2F978-3-030-03840-3_8
 
 **Video:**
 https://youtu.be/CqpGLE-Fj_k
