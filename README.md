@@ -6,7 +6,8 @@ ROS-based software architecture that drives the MIRO robot to a given position, 
 
 **Publication:**
 Luca Buoncompagni*, Suman Ghosh*, Mateus Moura*, Fulvio Mastrogiovanni, “A Scalable Architecture to Design Multi-Modal Interactions for Qualitative Robot Navigation”, 17th International Conference on Advances in Artificial Intelligence (AI*IA) Nov 2018, Lecture Notes in Computer Science, vol 11298. Springer, Cham.
-https://link.springer.com/chapter/10.1007%2F978-3-030-03840-3_8
+
+Link: https://link.springer.com/chapter/10.1007%2F978-3-030-03840-3_8
 
 **Video:**
 https://youtu.be/CqpGLE-Fj_k
